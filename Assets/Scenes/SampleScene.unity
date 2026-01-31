@@ -487,6 +487,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2033208593}
   - component: {fileID: 2033208592}
+  - component: {fileID: 2033208594}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -506,7 +507,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a02a30bf6b0e5ea41bf708ebca8971f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  PlayerPrefab: {fileID: 8251823802582108339, guid: 25d0f5de35c79084ab3144d411448113, type: 3}
+  PlayerPrefab: {fileID: 4138543378223155693, guid: 15d55d3e3186ace448e2828c1109ca33, type: 3}
 --- !u!4 &2033208593
 Transform:
   m_ObjectHideFlags: 0
@@ -522,6 +523,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2033208594
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2033208591}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a9c7396ad68f574daad2c715c0fc859, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  runnerPrefab: {fileID: 3983286207600545505, guid: 15d55d3e3186ace448e2828c1109ca33, type: 3}
 --- !u!4 &1002000217846931507
 Transform:
   m_ObjectHideFlags: 0
@@ -1482,7 +1496,7 @@ SceneRoots:
   m_Roots:
   - {fileID: 410087041}
   - {fileID: 832575519}
-  - {fileID: 2033208593}
   - {fileID: 921449505}
   - {fileID: 17556966}
   - {fileID: 3813369193233319537}
+  - {fileID: 2033208593}
