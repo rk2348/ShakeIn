@@ -3,12 +3,12 @@ using UnityEngine;
 
 public class SyncAvatar : NetworkBehaviour
 {
-    // ネットワーク全体で同期される「自分の役割」
+    // 同期される変数
     [Networked] public PlayerRole MyRole { get; set; }
 
     [Header("役割ごとの見た目")]
-    [SerializeField] private GameObject idolVisualObject; // アイドル用モデルのルート
-    [SerializeField] private GameObject fanVisualObject;  // ファン用モデルのルート
+    [SerializeField] private GameObject idolVisualObject;
+    [SerializeField] private GameObject fanVisualObject;
 
     [Header("同期対象（アバター側）")]
     [SerializeField] private Transform headVisual;
@@ -23,12 +23,22 @@ public class SyncAvatar : NetworkBehaviour
     private Transform _localLeftHand;
     private Transform _localRightHand;
 
+    // Fusion 2 で値の変化を検知するための変数
+    private ChangeDetector _changeDetector;
+
     public override void Spawned()
     {
-        // 1. 自分が生成したアバターの場合、デバイスIDから判定した役割をネットワーク変数にセット
+        // 変化検知の初期化
+        _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState);
+
         if (Object.HasInputAuthority)
         {
-            MyRole = RoleIdentifier.GetRole(); // RoleIdentifierを使って役割を取得
+            // 自分の役割を取得
+            PlayerRole selectedRole = RoleIdentifier.GetRole();
+            Debug.Log($"[SyncAvatar] 自分の役割は {selectedRole} です。ホストに設定を依頼します...");
+
+            // ホスト(StateAuthority)に役割の設定を依頼する
+            RpcRequestSetRole(selectedRole);
 
             _rig = FindFirstObjectByType<OVRCameraRig>();
             if (_rig != null)
@@ -39,32 +49,51 @@ public class SyncAvatar : NetworkBehaviour
             }
         }
 
-        // 2. 役割に応じて見た目を更新
+        // 初回の見た目更新
         UpdateVisuals();
     }
 
-    // 役割が変わったことを検知して見た目を切り替える（Fusion 2 の Render などで呼び出す）
+    // 依頼を受け取るメソッド (RPC)
+    // 呼び出し元: InputAuthority (自分) / 実行先: StateAuthority (ホスト)
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RpcRequestSetRole(PlayerRole role)
+    {
+        Debug.Log($"[RPC] ホストが役割設定を承認: {role}");
+        // 権限を持つホストが書き換えることで、全員に同期される
+        MyRole = role;
+    }
+
     public override void Render()
     {
-        UpdateVisuals();
+        // MyRoleに変化があったかチェック
+        foreach (var change in _changeDetector.DetectChanges(this))
+        {
+            if (change == nameof(MyRole))
+            {
+                UpdateVisuals();
+            }
+        }
     }
 
     private void UpdateVisuals()
     {
-        // MyRole の値に応じてオブジェクトをアクティブ/非アクティブにする
-        if (idolVisualObject != null)
-            idolVisualObject.SetActive(MyRole == PlayerRole.Staff);
+        // ログで現在の同期状態を確認
+        Debug.Log($"[UpdateVisuals] 現在のMyRole: {MyRole}");
 
-        if (fanVisualObject != null)
-            fanVisualObject.SetActive(MyRole == PlayerRole.Guest);
+        if (MyRole == PlayerRole.None) return;
+
+        bool isStaff = (MyRole == PlayerRole.Idol || MyRole == PlayerRole.Admin);
+        bool isGuest = (MyRole == PlayerRole.Guest);
+
+        if (idolVisualObject != null) idolVisualObject.SetActive(isStaff);
+        if (fanVisualObject != null) fanVisualObject.SetActive(isGuest);
     }
 
     public override void FixedUpdateNetwork()
     {
         if (Object.HasInputAuthority && _rig != null)
         {
-            HandleMovement(); // 右スティック移動
-
+            HandleMovement();
             transform.position = _localCenterEye.position;
             transform.rotation = _localCenterEye.rotation;
 

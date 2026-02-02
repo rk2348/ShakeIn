@@ -9,9 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2168514225271604653}
-  - component: {fileID: 4138543378223155693}
-  - component: {fileID: 5954600108969689304}
-  - component: {fileID: 3983286207600545505}
+  - component: {fileID: 4475990210333285862}
+  - component: {fileID: 1492904381445880514}
   m_Layer: 0
   m_Name: NetworkPlayer1
   m_TagString: Untagged
@@ -37,7 +36,7 @@ Transform:
   - {fileID: 4974169553074078929}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4138543378223155693
+--- !u!114 &4475990210333285862
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -49,16 +48,16 @@ MonoBehaviour:
   m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  SortKey: 2936361361
+  SortKey: 355105280
   ObjectInterest: 1
   Flags: 262145
   NestedObjects: []
   NetworkedBehaviours:
-  - {fileID: 5954600108969689304}
+  - {fileID: 1492904381445880514}
   - {fileID: 5232730184524799709}
   - {fileID: 7355166797156283783}
   ForceRemoteRenderTimeframe: 0
---- !u!114 &5954600108969689304
+--- !u!114 &1492904381445880514
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -70,25 +69,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b81a7c792dc54614b81402df4eb233e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _MyRole: 0
+  _MyRole: 3
   idolVisualObject: {fileID: 4083308276470613138}
   fanVisualObject: {fileID: 4083308276470613138}
   headVisual: {fileID: 7612743716717753472}
   leftHandVisual: {fileID: 4974169553074078929}
   rightHandVisual: {fileID: 9095528040665648547}
   moveSpeed: 3
---- !u!114 &3983286207600545505
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4083308276470613138}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -1199893898, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &4737697864462508784
 GameObject:
   m_ObjectHideFlags: 0

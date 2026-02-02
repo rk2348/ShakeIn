@@ -1,7 +1,8 @@
-// このファイルは、運営か客かを区別するための「名札」の定義です
+// 役割の定義を更新
 public enum PlayerRole
 {
     None,
-    Staff, // 運営（アイドル＆スタッフ）
+    Admin, // 管理
+    Idol,  // アイドル
     Guest  // ファン
 }
