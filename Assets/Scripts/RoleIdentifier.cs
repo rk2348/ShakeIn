@@ -1,4 +1,18 @@
+using UnityEngine;
+
 public static class RoleIdentifier
 {
-    public static PlayerRole SelectedRole = PlayerRole.None;
+    private static PlayerRole _selectedRole = PlayerRole.None;
+
+    // UIÇ©ÇÁê›íËÇ∑ÇÈÇΩÇﬂÇÃÉÅÉ\ÉbÉh
+    public static void SetRole(PlayerRole role)
+    {
+        _selectedRole = role;
+        Debug.Log($"Role set to: {role}");
+    }
+
+    public static PlayerRole GetRole()
+    {
+        return _selectedRole;
+    }
 }
