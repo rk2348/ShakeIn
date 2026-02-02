@@ -69,7 +69,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b81a7c792dc54614b81402df4eb233e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _MyRole: 3
+  _MyRole: 0
   idolVisualObject: {fileID: 4083308276470613138}
   fanVisualObject: {fileID: 4083308276470613138}
   headVisual: {fileID: 7612743716717753472}

@@ -3,19 +3,20 @@ using UnityEngine;
 
 public class SyncAvatar : NetworkBehaviour
 {
-    // 同期される変数
-    [Networked] public PlayerRole MyRole { get; set; }
+    // Sync the role and trigger visual update when the value changes
+    [Networked, OnChangedRender(nameof(UpdateVisuals))]
+    public PlayerRole MyRole { get; set; }
 
-    [Header("役割ごとの見た目")]
+    [Header("Visual Objects per Role")]
     [SerializeField] private GameObject idolVisualObject;
     [SerializeField] private GameObject fanVisualObject;
 
-    [Header("同期対象（アバター側）")]
+    [Header("Avatar Parts to Sync")]
     [SerializeField] private Transform headVisual;
     [SerializeField] private Transform leftHandVisual;
     [SerializeField] private Transform rightHandVisual;
 
-    [Header("移動設定")]
+    [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 2.0f;
 
     private OVRCameraRig _rig;
@@ -23,23 +24,16 @@ public class SyncAvatar : NetworkBehaviour
     private Transform _localLeftHand;
     private Transform _localRightHand;
 
-    // Fusion 2 で値の変化を検知するための変数
-    private ChangeDetector _changeDetector;
-
     public override void Spawned()
     {
-        // 変化検知の初期化
-        _changeDetector = GetChangeDetector(ChangeDetector.Source.SimulationState);
-
         if (Object.HasInputAuthority)
         {
-            // 自分の役割を取得
+            // Request the server to set the role based on local selection
             PlayerRole selectedRole = RoleIdentifier.GetRole();
-            Debug.Log($"[SyncAvatar] 自分の役割は {selectedRole} です。ホストに設定を依頼します...");
-
-            // ホスト(StateAuthority)に役割の設定を依頼する
+            Debug.Log($"[SyncAvatar] Requesting role sync: {selectedRole}");
             RpcRequestSetRole(selectedRole);
 
+            // Set up VR Rig references
             _rig = FindFirstObjectByType<OVRCameraRig>();
             if (_rig != null)
             {
@@ -49,54 +43,52 @@ public class SyncAvatar : NetworkBehaviour
             }
         }
 
-        // 初回の見た目更新
+        // Apply initial visuals (will be updated again once MyRole is synced)
         UpdateVisuals();
     }
 
-    // 依頼を受け取るメソッド (RPC)
-    // 呼び出し元: InputAuthority (自分) / 実行先: StateAuthority (ホスト)
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RpcRequestSetRole(PlayerRole role)
     {
-        Debug.Log($"[RPC] ホストが役割設定を承認: {role}");
-        // 権限を持つホストが書き換えることで、全員に同期される
+        // State Authority (Host) updates the networked variable
         MyRole = role;
-    }
 
-    public override void Render()
-    {
-        // MyRoleに変化があったかチェック
-        foreach (var change in _changeDetector.DetectChanges(this))
-        {
-            if (change == nameof(MyRole))
-            {
-                UpdateVisuals();
-            }
-        }
+        // Fix: Manually trigger update on the Host to ensure immediate feedback
+        UpdateVisuals();
+        Debug.Log($"[SyncAvatar] Role assigned on Server: {MyRole}");
     }
 
     private void UpdateVisuals()
     {
-        // ログで現在の同期状態を確認
-        Debug.Log($"[UpdateVisuals] 現在のMyRole: {MyRole}");
-
-        if (MyRole == PlayerRole.None) return;
+        // If role is not yet determined, hide all visuals to avoid default object issues
+        if (MyRole == PlayerRole.None)
+        {
+            if (idolVisualObject != null) idolVisualObject.SetActive(false);
+            if (fanVisualObject != null) fanVisualObject.SetActive(false);
+            return;
+        }
 
         bool isStaff = (MyRole == PlayerRole.Idol || MyRole == PlayerRole.Admin);
         bool isGuest = (MyRole == PlayerRole.Guest);
 
         if (idolVisualObject != null) idolVisualObject.SetActive(isStaff);
         if (fanVisualObject != null) fanVisualObject.SetActive(isGuest);
+
+        Debug.Log($"[SyncAvatar] Visuals Updated: Role={MyRole}, isStaff={isStaff}, isGuest={isGuest}");
     }
 
     public override void FixedUpdateNetwork()
     {
+        // Only the local player updates their own position
         if (Object.HasInputAuthority && _rig != null)
         {
             HandleMovement();
+
+            // Sync Head
             transform.position = _localCenterEye.position;
             transform.rotation = _localCenterEye.rotation;
 
+            // Sync Hands
             if (leftHandVisual != null)
             {
                 leftHandVisual.position = _localLeftHand.position;

@@ -1,20 +1,23 @@
 using Fusion;
 using UnityEngine;
 
-// NetworkBehaviourを継承し、Callbacksインターフェースを実装する
+/// <summary>
+/// プレイヤーが参加した際にアバターを生成するクラス
+/// </summary>
 public class PlayerSpawner : SimulationBehaviour, IPlayerJoined
 {
     [SerializeField] private NetworkObject playerPrefab; // 生成するアバターのプレハブ
 
     public void PlayerJoined(PlayerRef player)
     {
-        // 参加したのが自分（ローカルプレイヤー）の場合のみ生成する
-        if (player == Runner.LocalPlayer)
+        // Photon FusionのHostモードでは、ホスト（Server）のみがネットワークオブジェクトを生成できます
+        if (Runner.IsServer)
         {
-            Debug.Log("Local Player Joined. Spawning Avatar...");
+            Debug.Log($"Player {player} joined. Spawning Avatar for them...");
 
             // アバターをネットワーク上に生成
-            // 引数: プレハブ, 位置, 回転, 入力権限を与えるプレイヤー
+            // 第4引数に player を渡すことで、そのプレイヤーに「入力権限（Input Authority）」を与えます
+            // これにより、SyncAvatar.cs 内の Object.HasInputAuthority が正しく判定されます
             Runner.Spawn(playerPrefab, Vector3.zero, Quaternion.identity, player);
         }
     }
