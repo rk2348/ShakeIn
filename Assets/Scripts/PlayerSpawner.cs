@@ -35,9 +35,11 @@ public class PlayerSpawner : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        // 自分の時だけ、カメラのリグの位置をネットワーク上のオブジェクトに同期
+        // 自分の入力権限（HasInputAuthority）がある場合のみ、リグの動きをネットワーク用オブジェクトにコピーする
         if (HasInputAuthority && localHeadAnchor != null)
         {
+            // これらのオブジェクトに NetworkTransform が付いていれば、
+            // ここで代入した瞬間に他プレイヤーへ同期が始まります
             networkHead.position = localHeadAnchor.position;
             networkHead.rotation = localHeadAnchor.rotation;
 
