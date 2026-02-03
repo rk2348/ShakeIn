@@ -10,26 +10,37 @@ public class VRPlayerMovement : MonoBehaviour
 
     void Update()
     {
-        // 【変更点】右スティックの入力を取得 (SecondaryThumbstick = 右手)
+        // --- 移動処理 ---
+        // 右スティックの入力を取得 (SecondaryThumbstick = 右手)
         Vector2 input = OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick);
 
         if (input.magnitude > 0.1f)
         {
-            // 頭（CenterEyeAnchor）の向きに合わせて移動方向を計算
             Vector3 forward = centerEyeAnchor.forward;
             Vector3 right = centerEyeAnchor.right;
 
-            // 水平移動に限定（y軸を無視）
             forward.y = 0f;
             right.y = 0f;
             forward.Normalize();
             right.Normalize();
 
-            // 右スティックの入力に基づいた移動方向
             Vector3 moveDirection = (forward * input.y + right * input.x);
-
-            // OVRCameraRigの座標を更新
             transform.position += moveDirection * speed * Time.deltaTime;
+        }
+
+        // --- 振動処理 (追加) ---
+        // Aボタン（右手のButton.One）が押された瞬間
+        if (OVRInput.GetDown(OVRInput.Button.One))
+        {
+            // 右手コントローラーを振動させる（周波数: 1.0, 強さ: 1.0, 右手）
+            OVRInput.SetControllerVibration(1.0f, 1.0f, OVRInput.Controller.RTouch);
+        }
+
+        // Aボタンが離された瞬間、振動を止める
+        if (OVRInput.GetUp(OVRInput.Button.One))
+        {
+            // 振動を停止（周波数: 0, 強さ: 0）
+            OVRInput.SetControllerVibration(0, 0, OVRInput.Controller.RTouch);
         }
     }
 }
