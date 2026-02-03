@@ -19,7 +19,6 @@ public class PlayerSpawner : NetworkBehaviour
         if (HasInputAuthority)
         {
             // シーン内のOVRCameraRigにある各Anchorを見つける
-            // (タグや名前で検索、またはManagerから取得)
             var rig = GameObject.FindObjectOfType<OVRCameraRig>();
             if (rig != null)
             {
@@ -28,8 +27,14 @@ public class PlayerSpawner : NetworkBehaviour
                 localRightHandAnchor = rig.rightHandAnchor;
             }
 
-            // 自分のアバターのモデル（頭など）は、自分の視界の邪魔になるので非表示にする処理
-            // networkHead.gameObject.SetActive(false); 
+            // 【追加】自分の頭（球）の見た目だけを非表示にする処理
+            // networkHeadそのものをSetActive(false)にすると、位置の同期（NetworkTransform）も止まってしまうため、
+            // その子供にあるMeshRendererコンポーネントだけを無効にします。
+            var renderers = networkHead.GetComponentsInChildren<MeshRenderer>();
+            foreach (var r in renderers)
+            {
+                r.enabled = false;
+            }
         }
     }
 
@@ -38,8 +43,7 @@ public class PlayerSpawner : NetworkBehaviour
         // 自分の入力権限（HasInputAuthority）がある場合のみ、リグの動きをネットワーク用オブジェクトにコピーする
         if (HasInputAuthority && localHeadAnchor != null)
         {
-            // これらのオブジェクトに NetworkTransform が付いていれば、
-            // ここで代入した瞬間に他プレイヤーへ同期が始まります
+            // これらのオブジェクトに NetworkTransform が付いていれば、他プレイヤーへ同期が始まります
             networkHead.position = localHeadAnchor.position;
             networkHead.rotation = localHeadAnchor.rotation;
 
