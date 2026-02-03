@@ -1,51 +1,65 @@
 using UnityEngine;
+using Fusion;
 
-public class VRPlayerMovement : MonoBehaviour
+public class VRPlayerMovement : NetworkBehaviour
 {
-    [Header("移動させるオブジェクト")]
-    [SerializeField] private Transform targetObject;
-
     [Header("移動速度")]
     [SerializeField] private float speed = 2.0f;
 
-    [Header("視点の参照 (CenterEyeAnchor)")]
-    [SerializeField] private Transform centerEyeAnchor;
+    // シーン上のカメラリグ（移動させる対象）
+    private Transform cameraRigRoot;
+    // 進行方向の基準となるカメラの目
+    private Transform centerEyeAnchor;
 
-    void Update()
+    public override void Spawned()
     {
-        if (targetObject == null || centerEyeAnchor == null) return;
+        // 自分自身（操作権限があるプレイヤー）のときだけ実行
+        if (HasStateAuthority)
+        {
+            // シーンにある OVRCameraRig を探してセットする
+            var rig = FindObjectOfType<OVRCameraRig>();
+            if (rig != null)
+            {
+                cameraRigRoot = rig.transform;
+                centerEyeAnchor = rig.centerEyeAnchor;
+                Debug.Log("【成功】OVRCameraRig を発見しました。移動制御を開始します。");
+            }
+            else
+            {
+                Debug.LogError("【エラー】シーン内に OVRCameraRig が見つかりません！");
+            }
+        }
+    }
 
-        // 右スティックの入力を取得
+    public override void FixedUpdateNetwork()
+    {
+        // 権限がない、またはカメラが見つかっていない場合は処理しない
+        if (!HasStateAuthority || cameraRigRoot == null || centerEyeAnchor == null)
+        {
+            return;
+        }
+
+        // 右手のスティック入力を取得 (左手の場合は PrimaryThumbstick に変更)
         Vector2 input = OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick);
 
-        // スティックが倒されている場合のみ移動
+        // 入力が少しでもある場合
         if (input.magnitude > 0.1f)
         {
-            // カメラの向きに基づいた移動方向の計算
+            // カメラが向いている方向を基準に移動ベクトルを作成
             Vector3 forward = centerEyeAnchor.forward;
             Vector3 right = centerEyeAnchor.right;
 
-            // Y成分を無効化して水平移動に限定
+            // 上下（Y軸）には進まないように補正
             forward.y = 0f;
             right.y = 0f;
             forward.Normalize();
             right.Normalize();
 
-            // 移動ベクトルの合成
+            // 移動方向を決定
             Vector3 moveDirection = (forward * input.y + right * input.x);
 
-            // 対象オブジェクトの座標を更新
-            targetObject.position += moveDirection * speed * Time.deltaTime;
-        }
-
-        // --- 視覚的なフィードバック（振動） ---
-        if (OVRInput.GetDown(OVRInput.Button.One)) // Aボタン
-        {
-            OVRInput.SetControllerVibration(1.0f, 0.5f, OVRInput.Controller.RTouch);
-        }
-        if (OVRInput.GetUp(OVRInput.Button.One))
-        {
-            OVRInput.SetControllerVibration(0, 0, OVRInput.Controller.RTouch);
+            // 【重要】アバター(transform)ではなく、カメラリグ(cameraRigRoot)を動かす
+            cameraRigRoot.position += moveDirection * speed * Runner.DeltaTime;
         }
     }
 }
