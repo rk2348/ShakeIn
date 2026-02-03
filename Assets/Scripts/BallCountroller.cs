@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class BallController : MonoBehaviour
 {
@@ -32,23 +33,24 @@ public class BallController : MonoBehaviour
         if( mainBall.activeSelf == true )
         {
             // マウスクリック開始時.
-            if( Input.GetMouseButtonDown(0) == true )
+            if(Mouse.current.leftButton.wasPressedThisFrame)
             {
                 // 開始位置を保管.
-                mousePosition = Input.mousePosition;
+                Vector3 mousePos = Mouse.current.position.ReadValue();
                 // 方向線を表示.
                 arrow.gameObject.SetActive( true );
                 Debug.Log( "クリック開始" );
             }
 
             // マウスクリック中.
-            if( Input.GetMouseButton( 0 ) == true )
+            if(Mouse.current.leftButton.isPressed)
             {
                 // 現在の位置を随時保管.
-                Vector3 position = Input.mousePosition;
+                Vector3 mousePos = Mouse.current.position.ReadValue();
+
 
                 // 角度を算出.
-                Vector3 def = mousePosition - position;
+                Vector3 def = mousePosition - mousePos;
                 float rad = Mathf.Atan2( def.x, def.y );
                 float angle = rad * Mathf.Rad2Deg;
                 Vector3 rot = new Vector3( 0, angle, 0 );
@@ -60,10 +62,10 @@ public class BallController : MonoBehaviour
              }
 
             // マウスクリック終了時.
-            if( Input.GetMouseButtonUp(0) == true )
+            if (Mouse.current.leftButton.wasReleasedThisFrame)
             {
                 // 終了時の位置を保管.
-                Vector3 upPosition = Input.mousePosition;
+                Vector3 upPosition = Mouse.current.position.ReadValue();
 
                 // 開始位置と終了位置のベクトル計算から打ち出す方向を算出.
                 Vector3 def = mousePosition - upPosition;
