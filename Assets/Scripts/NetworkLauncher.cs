@@ -2,8 +2,8 @@ using Fusion;
 using Fusion.Sockets;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks; // 追加：Task.Delayを使うため
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using TMPro;
 
 public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
@@ -16,6 +16,18 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private TMP_InputField roomNameInputField;
 
     private NetworkRunner _runner;
+
+    // --- 追加：起動5秒後にStartGameを呼ぶ ---
+    private async void Start()
+    {
+        Debug.Log("5秒後に自動でStartGameを呼び出します...");
+        
+        // 5000ミリ秒 = 5秒待機
+        await Task.Delay(1000);
+
+        // StartGameを実行
+        StartGame();
+    }
 
     public async void StartGame()
     {
@@ -45,6 +57,7 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
         });
     }
 
+    // --- 以下、インターフェースの実装（変更なし） ---
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         if (player == runner.LocalPlayer)
@@ -53,17 +66,9 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    // --- 【修正：CS0535/CS0246対策】 インターフェースの引数を最新版に修正 ---
-
-    // 修正：NetConnectReason ではなく NetConnectFailedReason
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
-
-    // 修正：ReliableKey を引数に追加
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
-
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-
-    // 以下は空のままでOKですが、定義が必要です
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
