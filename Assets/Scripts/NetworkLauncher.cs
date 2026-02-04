@@ -15,17 +15,11 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
     [Header("UI References")]
     [SerializeField] private TMP_InputField roomNameInputField;
 
-    // ★追加: 対戦開始パネル（「対戦相手が揃いました」等のUI）
-    [SerializeField] private GameObject matchFoundPanel;
-
     private NetworkRunner _runner;
 
     private async void Start()
     {
-        // ★追加: 開始時はパネルを隠しておく（インスペクターで非表示にしてあれば不要ですが念の為）
-        if (matchFoundPanel != null) matchFoundPanel.SetActive(false);
-
-        Debug.Log("5秒後に自動でStartGameを呼び出します...");
+        Debug.Log("1秒後に自動でStartGameを呼び出します...");
         await Task.Delay(1000);
         StartGame();
     }
@@ -51,25 +45,15 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
             GameMode = GameMode.Shared,
             SessionName = sessionName,
             Scene = sceneRef,
-            PlayerCount = 2, // ★ここで最大人数を2人に制限します
+            PlayerCount = 2, // 最大人数制限
             SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
         });
     }
 
-    // --- インターフェースの実装 ---
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        // ★追加: プレイヤー人数をチェックしてパネルを表示
-        // FusionのPlayerCountは参加済みの人数を返します
-        if (runner.SessionInfo.PlayerCount >= 2)
-        {
-            Debug.Log("対戦相手が揃いました！");
-            if (matchFoundPanel != null) matchFoundPanel.SetActive(true);
-        }
-
         if (player == runner.LocalPlayer)
         {
-            // --- 自分のアバター生成処理（既存のコード） ---
             if (playerPrefabs != null && playerPrefabs.Count > 0)
             {
                 int playerCount = runner.SessionInfo.PlayerCount;
@@ -86,14 +70,9 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        // ★追加: 誰かが抜けて2人未満になったらパネルを消す（任意）
-        if (runner.SessionInfo.PlayerCount < 2)
-        {
-            if (matchFoundPanel != null) matchFoundPanel.SetActive(false);
-        }
+        // プレイヤーが退出したときの処理
     }
 
-    // --- 他のコールバック（変更なし） ---
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
