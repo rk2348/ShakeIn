@@ -107,45 +107,53 @@ public class VRPlayerMovement : NetworkBehaviour
     // ★追加: 衝突判定
     // プレイヤーオブジェクトに Collider と Rigidbody が必要です。
     // ★追加: 衝突判定
+    // ★修正: 衝突判定
     private void OnCollisionEnter(Collision collision)
     {
         // 自分の動作でなければ無視
         if (!HasStateAuthority) return;
 
-        // 衝突相手が「BilliardBall」コンポーネントを持っているかチェック
+        // -----------------------------------------------------------
+        // ケースA: ボールとの衝突（既存の処理）
+        // -----------------------------------------------------------
         var ball = collision.gameObject.GetComponent<BilliardBall>();
         if (ball != null)
         {
-            // -----------------------------------------------------------
-            // ここから: ボールを弾く処理を追加
-            // -----------------------------------------------------------
-
-            // 1. ボールを動かす権限がない場合、リクエストする（Sharedモードなど）
+            // 1. ボールを動かす権限がない場合、リクエストする
             if (!ball.Object.HasStateAuthority)
             {
                 ball.Object.RequestStateAuthority();
             }
 
-            // 2. 弾く方向を計算 (自分中心 -> ボール中心)
+            // 2. 弾く方向を計算
             Vector3 dir = (ball.transform.position - transform.position).normalized;
-            dir.y = 0; // 水平方向に限定
+            dir.y = 0;
 
             // 3. 弾く強さを決定
-            // currentVelocity（慣性移動）の大きさを使う。
-            // もし「右スティック歩行」などで currentVelocity が 0 の場合でも
-            // 最低限の力で弾けるように Math.Max で下限値を設定しておくと遊びやすいです。
             float power = Mathf.Max(currentVelocity.magnitude, 1.0f);
 
-            // 4. ボールに速度を適用 (反発係数として 1.2倍 などを掛けて調整可)
+            // 4. ボールに速度を適用
             ball.Velocity = dir * power * 1.2f;
 
-            // -----------------------------------------------------------
-            // ここまで
-            // -----------------------------------------------------------
-
-            // 速度をゼロにして停止させる（既存の処理）
+            // プレイヤーは停止する
             currentVelocity = Vector3.zero;
             Debug.Log($"【衝突】ボール ({collision.gameObject.name}) に当たり、弾きました。");
+        }
+        // -----------------------------------------------------------
+        // ケースB: 壁との衝突（★追加部分）
+        // -----------------------------------------------------------
+        else if (collision.gameObject.CompareTag("Wall"))
+        {
+            // 衝突した面の法線（跳ね返る角度の基準）を取得
+            Vector3 normal = collision.contacts[0].normal;
+
+            // 速度ベクトルを反射させる (入射角＝反射角)
+            currentVelocity = Vector3.Reflect(currentVelocity, normal);
+
+            // 必要に応じて少し減速させる（壁の反発係数的な挙動）
+            // currentVelocity *= 0.8f; // 減速させたい場合はコメントアウトを外す
+
+            Debug.Log("【反射】壁に当たって跳ね返りました。");
         }
     }
 }
