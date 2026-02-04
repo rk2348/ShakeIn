@@ -13,9 +13,8 @@ GameObject:
   - component: {fileID: 1915198595018245679}
   - component: {fileID: 2426393924894395458}
   - component: {fileID: 3757601478534525136}
-  - component: {fileID: 6923994088377186312}
   m_Layer: 0
-  m_Name: NetworkPlayer2 1
+  m_Name: NetworkPlayer2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -111,29 +110,8 @@ MonoBehaviour:
   friction: 0.985
   stopThreshold: 0.01
   bounciness: 0.8
-  tableWidth: 1
-  tableLength: 2
---- !u!135 &6923994088377186312
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1494214321900346156}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 0
-  serializedVersion: 3
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
+  tableWidth: 11.5
+  tableLength: 22.5
 --- !u!1 &6692798332582441965
 GameObject:
   m_ObjectHideFlags: 0

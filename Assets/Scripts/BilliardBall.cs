@@ -87,9 +87,12 @@ public class BilliardBall : NetworkBehaviour
     /// <summary>
     /// 他のボールとの衝突を解決します（BilliardTableManagerから呼ばれます）
     /// </summary>
+    /// <summary>
+    /// 他のボールとの衝突を解決します（BilliardTableManagerから呼ばれます）
+    /// </summary>
     public void ResolveBallCollision(BilliardBall other)
     {
-        // ★追加：念の為の安全策
+        // 念の為の安全策
         if (!Object.IsValid || !other.Object.IsValid) return;
 
         // 2つのボールの距離を計算
@@ -100,9 +103,11 @@ public class BilliardBall : NetworkBehaviour
         // 半径の合計より距離が近い＝衝突している
         if (distance < minDistance)
         {
+            // ---------------------------------------------------------
             // 1. 重なり防止（めり込みを修正）
+            // ---------------------------------------------------------
             Vector3 normal = delta.normalized;
-            if (distance == 0) normal = Vector3.forward;
+            if (distance == 0) normal = Vector3.forward; // ゼロ除算回避
 
             float overlap = minDistance - distance;
 
@@ -110,22 +115,43 @@ public class BilliardBall : NetworkBehaviour
             transform.position += normal * (overlap / 2f);
             other.transform.position -= normal * (overlap / 2f);
 
-            // 2. 衝突による速度の入れ替え（完全交換）
-            // ベクトル演算による物理計算ではなく、速度そのものを入れ替えます。
+            // ---------------------------------------------------------
+            // 2. 物理的な衝突計算（ベクトル分解）
+            // ---------------------------------------------------------
 
-            // お互いに近づいている（衝突に向かっている）場合のみ処理
-            // (これをチェックしないと、重なっている間に連続で入れ替わり続けておかしくなります)
+            // 相対速度を計算
             Vector3 relativeVelocity = this.Velocity - other.Velocity;
             float velocityAlongNormal = Vector3.Dot(relativeVelocity, normal);
 
+            // お互いに近づいている場合のみ衝突処理を行う
             if (velocityAlongNormal < 0)
             {
-                // 速度ベクトルをまるごと交換する
-                // これにより、当てた側(this)の速度と向きがそのまま相手(other)に移り、
-                // 相手の速度(止まっていれば0)が自分に移ります。
-                Vector3 tempVelocity = this.Velocity;
-                this.Velocity = other.Velocity;
-                other.Velocity = tempVelocity;
+                // 球同士の反発係数（1.0に近いほど完全弾性衝突＝エネルギーロスなし）
+                // 硬い球同士なので通常は 0.9 ～ 0.98 程度
+                float ballRestitution = 0.98f;
+
+                // --- 手球 (this) の計算 ---
+                // 現在の速度を法線成分と接線成分に分解
+                float v1DotNormal = Vector3.Dot(this.Velocity, normal);
+                Vector3 v1NormalVec = normal * v1DotNormal; // 法線成分ベクトル
+                Vector3 v1TangentVec = this.Velocity - v1NormalVec; // 接線成分ベクトル
+
+                // --- 相手球 (other) の計算 ---
+                float v2DotNormal = Vector3.Dot(other.Velocity, normal);
+                Vector3 v2NormalVec = normal * v2DotNormal;
+                Vector3 v2TangentVec = other.Velocity - v2NormalVec;
+
+                // --- 1次元の完全弾性衝突公式（質量が等しい場合） ---
+                // 新しい法線速度 v1' = (v1 * (1-e) + v2 * (1+e)) / 2
+                // 新しい法線速度 v2' = (v2 * (1-e) + v1 * (1+e)) / 2
+
+                float v1NormalNew = (v1DotNormal * (1 - ballRestitution) + v2DotNormal * (1 + ballRestitution)) / 2f;
+                float v2NormalNew = (v2DotNormal * (1 - ballRestitution) + v1DotNormal * (1 + ballRestitution)) / 2f;
+
+                // --- 速度の合成 ---
+                // 法線成分は新しく計算した値を使い、接線成分はそのまま維持する
+                this.Velocity = v1TangentVec + (normal * v1NormalNew);
+                other.Velocity = v2TangentVec + (normal * v2NormalNew);
             }
         }
     }

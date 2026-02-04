@@ -11,7 +11,7 @@ public class BallController : MonoBehaviour
     // 方向表示用オブジェクトのトランスフォーム.
     [SerializeField] Transform arrow = null;
     // ボールリスト.
-    [SerializeField] List<Ball> ballList = new List<Ball>();
+    //[SerializeField] List<Ball> ballList = new List<Ball>();
 
     // マウス位置保管用.
     Vector3 mousePosition = new Vector3();
