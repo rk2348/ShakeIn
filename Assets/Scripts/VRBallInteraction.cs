@@ -15,28 +15,34 @@ public class VRBallInteraction : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        // 操作権限がある場合のみ計算
+        // 1. 基本的なnullチェックと権限チェック
         if (!HasStateAuthority || cueBall == null || rightHandAnchor == null) return;
 
-        // 1. コントローラーの速度を計算（自前計算）
-        // OVRInput.GetLocalControllerVelocity も使えますが、ワールド座標での計算が確実です
+        // 【追加】2. cueBallがネットワーク的に有効（Spawn済み）かチェック
+        // これがないと、シーンロード直後に "Networked properties..." のエラーが出ることがあります
+        if (cueBall.Object == null || !cueBall.Object.IsValid) return;
+
+
+        // --- 以下、既存の処理と同じ ---
+
+        // 3. コントローラーの速度を計算（自前計算）
         handVelocity = (rightHandAnchor.position - lastHandPosition) / Runner.DeltaTime;
         lastHandPosition = rightHandAnchor.position;
 
-        // 2. 距離の判定
+        // 4. 距離の判定
         float distance = Vector3.Distance(rightHandAnchor.position, cueBall.transform.position);
 
         // ボールの半径（例: 0.03m）より近ければ「当たった」とみなす
         if (distance < 0.05f)
         {
-            // 3. 速度が一定以上の時だけ反発させる
+            // 5. 速度が一定以上の時だけ反発させる
             if (handVelocity.magnitude > minHitVelocity)
             {
                 // ボールの速度をコントローラーの速度に合わせる
-                // Y軸方向への力は、ビリヤード台に抑えられるため制限するのがコツ
                 Vector3 newVelocity = handVelocity * hitMultiplier;
                 newVelocity.y = 0;
 
+                // ここでエラーが起きていた（IsValidチェックにより回避される）
                 cueBall.Velocity = newVelocity;
 
                 // 連続衝突を防ぐため、少しボールを押し出す処理を入れると安定します

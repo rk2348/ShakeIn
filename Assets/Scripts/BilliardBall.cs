@@ -15,6 +15,31 @@ public class BilliardBall : NetworkBehaviour
     [SerializeField] private float tableWidth = 1.0f;  // X方向の端
     [SerializeField] private float tableLength = 2.0f; // Z方向の端
 
+    // ★追加：Spawnされたタイミング（ネットワーク変数が安全に使える状態）でマネージャーに登録する
+    public override void Spawned()
+    {
+        // マネージャーを探して登録
+        var manager = BilliardTableManager.Instance;
+        if (manager == null) manager = FindObjectOfType<BilliardTableManager>();
+
+        if (manager != null)
+        {
+            manager.RegisterBall(this);
+        }
+    }
+
+    // ★追加：消えるタイミングでマネージャーから除外する
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        var manager = BilliardTableManager.Instance;
+        if (manager == null) manager = FindObjectOfType<BilliardTableManager>();
+
+        if (manager != null)
+        {
+            manager.UnregisterBall(this);
+        }
+    }
+
     public override void FixedUpdateNetwork()
     {
         // 速度が一定以上ある場合のみ移動処理を行う
@@ -64,6 +89,9 @@ public class BilliardBall : NetworkBehaviour
     /// </summary>
     public void ResolveBallCollision(BilliardBall other)
     {
+        // ★追加：念の為の安全策（呼び出し元でチェックしていれば不要ですが、二重チェックとして有効です）
+        if (!Object.IsValid || !other.Object.IsValid) return;
+
         // 2つのボールの距離を計算
         Vector3 delta = transform.position - other.transform.position;
         float distance = delta.magnitude;
