@@ -13,45 +13,62 @@ public class PlayerSpawner : NetworkBehaviour
     private Transform localLeftHandAnchor;
     private Transform localRightHandAnchor;
 
+    // カメラリグのルート（移動の基準）
+    private Transform localRigRoot;
+
     public override void Spawned()
     {
-        // 自分が操作するアバター（自分自身）の場合だけ、シーン内のOVRCameraRigを探す
         if (HasInputAuthority)
         {
-            // シーン内のOVRCameraRigにある各Anchorを見つける
             var rig = GameObject.FindObjectOfType<OVRCameraRig>();
             if (rig != null)
             {
+                // カメラリグのルートを取得
+                localRigRoot = rig.transform;
+
                 localHeadAnchor = rig.centerEyeAnchor;
                 localLeftHandAnchor = rig.leftHandAnchor;
                 localRightHandAnchor = rig.rightHandAnchor;
             }
 
-            // 【追加】自分の頭（球）の見た目だけを非表示にする処理
-            // networkHeadそのものをSetActive(false)にすると、位置の同期（NetworkTransform）も止まってしまうため、
-            // その子供にあるMeshRendererコンポーネントだけを無効にします。
+            // 自分の頭のメッシュを非表示にする処理
             var renderers = networkHead.GetComponentsInChildren<MeshRenderer>();
-            foreach (var r in renderers)
-            {
-                r.enabled = false;
-            }
+            foreach (var r in renderers) r.enabled = false;
         }
     }
 
     public override void FixedUpdateNetwork()
     {
-        // 自分の入力権限（HasInputAuthority）がある場合のみ、リグの動きをネットワーク用オブジェクトにコピーする
-        if (HasInputAuthority && localHeadAnchor != null)
+        // 入力権限がある場合のみ実行
+        if (HasInputAuthority && localRigRoot != null)
         {
-            // これらのオブジェクトに NetworkTransform が付いていれば、他プレイヤーへ同期が始まります
-            networkHead.position = localHeadAnchor.position;
-            networkHead.rotation = localHeadAnchor.rotation;
+            // ★追加: アバター本体（このスクリプトがついている親）をカメラリグの位置・回転に合わせる
+            // これにより、NetworkTransformが「移動した座標」を他プレイヤーに送信します
+            transform.position = localRigRoot.position;
+            transform.rotation = localRigRoot.rotation;
 
-            networkLeftHand.position = localLeftHandAnchor.position;
-            networkLeftHand.rotation = localLeftHandAnchor.rotation;
+            // 各パーツ（頭・手）の同期
+            // ※注意: もしnetworkHeadなどがPlayerの子オブジェクトの場合、
+            // 親（transform）が動いた分だけ二重に動いてしまう可能性があります。
+            // その場合は、localHeadAnchor.position ではなく localHeadAnchor.localPosition を使うなどの調整が必要ですが、
+            // まずはこのコードで「移動」が同期されるか確認してください。
+            if (localHeadAnchor != null)
+            {
+                networkHead.position = localHeadAnchor.position;
+                networkHead.rotation = localHeadAnchor.rotation;
+            }
 
-            networkRightHand.position = localRightHandAnchor.position;
-            networkRightHand.rotation = localRightHandAnchor.rotation;
+            if (localLeftHandAnchor != null)
+            {
+                networkLeftHand.position = localLeftHandAnchor.position;
+                networkLeftHand.rotation = localLeftHandAnchor.rotation;
+            }
+
+            if (localRightHandAnchor != null)
+            {
+                networkRightHand.position = localRightHandAnchor.position;
+                networkRightHand.rotation = localRightHandAnchor.rotation;
+            }
         }
     }
 }
