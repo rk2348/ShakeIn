@@ -63,9 +63,9 @@ public class VRBallInteraction : NetworkBehaviour
         // 2. スティックが倒されているか（デッドゾーン判定 0.2以上）
         if (inputStick.magnitude > 0.2f)
         {
-            // --- 権限の自動取得（重要） ---
-            // 操作しようとしているのに権限がない場合、権限をリクエストする
-            if (!HasStateAuthority)
+            // ★修正: 「自分(プレイヤー)」ではなく「ボール」の権限をチェックする必要があります
+            // 権限がない場合、ボールに対して権限をリクエストします
+            if (!cueBall.Object.HasStateAuthority)
             {
                 cueBall.Object.RequestStateAuthority();
                 return; // 権限が取れるまで待つ（次のフレームへ）
@@ -86,7 +86,7 @@ public class VRBallInteraction : NetworkBehaviour
                     // 連射防止フラグを立てる
                     hasFired = true;
 
-                    // タイマーリセット（または溜め完了のエフェクトなどを出すならここで）
+                    // タイマーリセット
                     holdTimer = 0f;
                 }
             }

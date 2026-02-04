@@ -2,14 +2,15 @@ using Fusion;
 using Fusion.Sockets;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks; // 追加：Task.Delayを使うため
+using System.Threading.Tasks;
 using UnityEngine;
 using TMPro;
 
 public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
 {
     [Header("Network Settings")]
-    [SerializeField] private NetworkPrefabRef playerPrefab;
+    // ★変更: 単一のプレハブ指定から、リスト形式に変更しました
+    [SerializeField] private List<NetworkPrefabRef> playerPrefabs;
     [SerializeField] private int targetSceneIndex = 1;
 
     [Header("UI References")]
@@ -17,12 +18,12 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
     private NetworkRunner _runner;
 
-    // --- 追加：起動5秒後にStartGameを呼ぶ ---
+    // --- 起動5秒後にStartGameを呼ぶ ---
     private async void Start()
     {
         Debug.Log("5秒後に自動でStartGameを呼び出します...");
-        
-        // 5000ミリ秒 = 5秒待機
+
+        // 5000ミリ秒 = 5秒待機 (※元のコードに合わせて1000msのままにしていますが必要なら変更してください)
         await Task.Delay(1000);
 
         // StartGameを実行
@@ -31,7 +32,7 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
     public async void StartGame()
     {
-        // NullReferenceException対策：InputFieldが空でないかチェック
+        // NullReferenceException対策
         if (roomNameInputField == null)
         {
             Debug.LogError("Room Name Input Field がインスペクターで設定されていません！");
@@ -45,7 +46,7 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
         string sessionName = string.IsNullOrEmpty(roomNameInputField.text) ? "TestRoom" : roomNameInputField.text;
 
-        // 【修正：CS0029対策】 intをSceneRefに変換して渡す
+        // intをSceneRefに変換して渡す
         SceneRef sceneRef = SceneRef.FromIndex(targetSceneIndex);
 
         await _runner.StartGame(new StartGameArgs()
@@ -57,12 +58,32 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
         });
     }
 
-    // --- 以下、インターフェースの実装（変更なし） ---
+    // --- インターフェースの実装 ---
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         if (player == runner.LocalPlayer)
         {
-            runner.Spawn(playerPrefab, Vector3.zero, Quaternion.identity, player);
+            // ★変更: 参加順序に応じてプレハブを選択して生成する処理
+
+            // プレハブリストが正しく設定されているか確認
+            if (playerPrefabs != null && playerPrefabs.Count > 0)
+            {
+                // 現在の部屋のプレイヤー人数を取得 (1人目=1, 2人目=2...)
+                int playerCount = runner.SessionInfo.PlayerCount;
+
+                // 配列のインデックスを決定 (1人目=0, 2人目=1...)
+                // ※人数が登録プレハブ数を超えた場合はループします (例: 3種類登録で4人目が来たら0番目を使用)
+                int index = (playerCount - 1) % playerPrefabs.Count;
+
+                Debug.Log($"【Spawn】プレイヤー人数: {playerCount}人目 -> Prefab Index: {index} を生成します。");
+
+                // 選択されたプレハブを生成
+                runner.Spawn(playerPrefabs[index], Vector3.zero, Quaternion.identity, player);
+            }
+            else
+            {
+                Debug.LogError("【Error】NetworkLauncherの 'Player Prefabs' リストが空です！インスペクターで設定してください。");
+            }
         }
     }
 

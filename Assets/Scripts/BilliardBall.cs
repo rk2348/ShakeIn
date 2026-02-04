@@ -89,7 +89,7 @@ public class BilliardBall : NetworkBehaviour
     /// </summary>
     public void ResolveBallCollision(BilliardBall other)
     {
-        // ★追加：念の為の安全策（呼び出し元でチェックしていれば不要ですが、二重チェックとして有効です）
+        // ★追加：念の為の安全策
         if (!Object.IsValid || !other.Object.IsValid) return;
 
         // 2つのボールの距離を計算
@@ -102,7 +102,7 @@ public class BilliardBall : NetworkBehaviour
         {
             // 1. 重なり防止（めり込みを修正）
             Vector3 normal = delta.normalized;
-            if (distance == 0) normal = Vector3.forward; // 完全に重なっている場合の例外処理
+            if (distance == 0) normal = Vector3.forward;
 
             float overlap = minDistance - distance;
 
@@ -110,17 +110,22 @@ public class BilliardBall : NetworkBehaviour
             transform.position += normal * (overlap / 2f);
             other.transform.position -= normal * (overlap / 2f);
 
-            // 2. 衝突による速度の変化（弾性衝突の計算）
-            // 衝突線方向の相対速度を計算
-            float v1 = Vector3.Dot(this.Velocity, normal);
-            float v2 = Vector3.Dot(other.Velocity, normal);
+            // 2. 衝突による速度の入れ替え（完全交換）
+            // ベクトル演算による物理計算ではなく、速度そのものを入れ替えます。
 
-            // 互いに近づき合っている場合のみ速度を交換する
-            if (v1 - v2 < 0)
+            // お互いに近づいている（衝突に向かっている）場合のみ処理
+            // (これをチェックしないと、重なっている間に連続で入れ替わり続けておかしくなります)
+            Vector3 relativeVelocity = this.Velocity - other.Velocity;
+            float velocityAlongNormal = Vector3.Dot(relativeVelocity, normal);
+
+            if (velocityAlongNormal < 0)
             {
-                Vector3 velocityChange = normal * (v1 - v2);
-                this.Velocity -= velocityChange;
-                other.Velocity += velocityChange;
+                // 速度ベクトルをまるごと交換する
+                // これにより、当てた側(this)の速度と向きがそのまま相手(other)に移り、
+                // 相手の速度(止まっていれば0)が自分に移ります。
+                Vector3 tempVelocity = this.Velocity;
+                this.Velocity = other.Velocity;
+                other.Velocity = tempVelocity;
             }
         }
     }

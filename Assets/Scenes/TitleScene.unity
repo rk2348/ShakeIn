@@ -731,8 +731,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a61c21405bf0f3a48a54f31f5378534d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerPrefab:
-    RawGuidValue: 602ba417dac7c8444aa0ba5eee1983c4
+  playerPrefabs:
+  - RawGuidValue: 602ba417dac7c8444aa0ba5eee1983c4
+  - RawGuidValue: cff40dcbbe16ac3439d7ad11bada0999
   targetSceneIndex: 1
   roomNameInputField: {fileID: 1957365524}
 --- !u!4 &1110073844
