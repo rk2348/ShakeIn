@@ -736,6 +736,7 @@ MonoBehaviour:
   - RawGuidValue: cff40dcbbe16ac3439d7ad11bada0999
   targetSceneIndex: 1
   roomNameInputField: {fileID: 1957365524}
+  matchFoundPanel: {fileID: 0}
 --- !u!4 &1110073844
 Transform:
   m_ObjectHideFlags: 0
