@@ -5,14 +5,19 @@ public class BilliardBall : NetworkBehaviour
 {
     [Networked] public Vector3 Velocity { get; set; } // ネットワーク同期される速度
 
-    [Header("設定")]
-    [SerializeField] private float radius = 0.03f;     // ボールの半径
-    [SerializeField] private float friction = 0.98f;   // 摩擦（毎フレームの速度維持率）
-    [SerializeField] private float stopThreshold = 0.05f; // 停止とみなす速度
+    [Header("物理設定")]
+    [SerializeField] public float radius = 0.03f;     // ボールの半径
+    [SerializeField] private float friction = 0.985f;  // 摩擦（毎フレームの速度維持率）
+    [SerializeField] private float stopThreshold = 0.01f; // 停止とみなす速度
     [SerializeField] private float bounciness = 0.8f;  // クッションの反発係数
+
+    [Header("テーブル範囲")]
+    [SerializeField] private float tableWidth = 1.0f;  // X方向の端
+    [SerializeField] private float tableLength = 2.0f; // Z方向の端
 
     public override void FixedUpdateNetwork()
     {
+        // 速度が一定以上ある場合のみ移動処理を行う
         if (Velocity.magnitude > stopThreshold)
         {
             // 1. 位置の更新
@@ -26,58 +31,69 @@ public class BilliardBall : NetworkBehaviour
         }
         else
         {
+            // 速度が極小になったら完全に停止させる
             Velocity = Vector3.zero;
         }
     }
 
     private void CheckWallCollision()
     {
-        // 簡単な例：テーブルのサイズを X:-1~1, Z:-2~2 と仮定
         Vector3 pos = transform.position;
         Vector3 vel = Velocity;
 
-        // X方向の壁
-        if (Mathf.Abs(pos.x) + radius > 1.0f)
+        // X方向の壁との判定
+        if (Mathf.Abs(pos.x) + radius > tableWidth)
         {
-            pos.x = Mathf.Sign(pos.x) * (1.0f - radius);
-            vel.x *= -1 * bounciness; // X軸の速度を反転
+            pos.x = Mathf.Sign(pos.x) * (tableWidth - radius);
+            vel.x *= -1 * bounciness; // 速度を反転して反発
         }
 
-        // Z方向の壁
-        if (Mathf.Abs(pos.z) + radius > 2.0f)
+        // Z方向の壁との判定
+        if (Mathf.Abs(pos.z) + radius > tableLength)
         {
-            pos.z = Mathf.Sign(pos.z) * (2.0f - radius);
-            vel.z *= -1 * bounciness; // Z軸の速度を反転
+            pos.z = Mathf.Sign(pos.z) * (tableLength - radius);
+            vel.z *= -1 * bounciness; // 速度を反転して反発
         }
 
         transform.position = pos;
         Velocity = vel;
     }
 
-    // 他のボールとの衝突（簡易版）
-    // 本来はマネージャー側で一括管理するのが理想的ですが、ロジックの核を紹介します
+    /// <summary>
+    /// 他のボールとの衝突を解決します（BilliardTableManagerから呼ばれます）
+    /// </summary>
     public void ResolveBallCollision(BilliardBall other)
     {
+        // 2つのボールの距離を計算
         Vector3 delta = transform.position - other.transform.position;
         float distance = delta.magnitude;
+        float minDistance = this.radius + other.radius;
 
-        if (distance < radius * 2)
+        // 半径の合計より距離が近い＝衝突している
+        if (distance < minDistance)
         {
-            // 1. 重なり防止（めり込み回避）
+            // 1. 重なり防止（めり込みを修正）
             Vector3 normal = delta.normalized;
-            float overlap = radius * 2 - distance;
+            if (distance == 0) normal = Vector3.forward; // 完全に重なっている場合の例外処理
+
+            float overlap = minDistance - distance;
+
+            // 互いに半分ずつ押し出す
             transform.position += normal * (overlap / 2f);
             other.transform.position -= normal * (overlap / 2f);
 
-            // 2. 速度の交換（弾性衝突）
-            // 衝突線方向の速度成分を計算
+            // 2. 衝突による速度の変化（弾性衝突の計算）
+            // 衝突線方向の相対速度を計算
             float v1 = Vector3.Dot(this.Velocity, normal);
             float v2 = Vector3.Dot(other.Velocity, normal);
 
-            // 質量が同じなら、この成分を入れ替えるだけでビリヤードっぽくなる
-            Vector3 velocityChange = normal * (v1 - v2);
-            this.Velocity -= velocityChange;
-            other.Velocity += velocityChange;
+            // 互いに近づき合っている場合のみ速度を交換する
+            if (v1 - v2 < 0)
+            {
+                Vector3 velocityChange = normal * (v1 - v2);
+                this.Velocity -= velocityChange;
+                other.Velocity += velocityChange;
+            }
         }
     }
 }

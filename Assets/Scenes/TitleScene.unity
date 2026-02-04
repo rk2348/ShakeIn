@@ -732,7 +732,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerPrefab:
-    RawGuidValue: b49a7f8900efeca44a95405ebdbfea4a
+    RawGuidValue: 602ba417dac7c8444aa0ba5eee1983c4
   targetSceneIndex: 1
   roomNameInputField: {fileID: 1957365524}
 --- !u!4 &1110073844
