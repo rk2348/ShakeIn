@@ -11,11 +11,9 @@ public class BilliardBall : NetworkBehaviour
     [SerializeField] private float stopThreshold = 0.01f; // 停止とみなす速度
     [SerializeField] private float bounciness = 0.8f;  // クッションの反発係数
 
-    [Header("テーブル範囲")]
-    [SerializeField] private float tableWidth = 1.0f;  // X方向の端
-    [SerializeField] private float tableLength = 2.0f; // Z方向の端
+    [Header("壁の設定")]
+    [SerializeField] private string wallTag = "Wall"; // 壁とみなすオブジェクトのタグ
 
-    // ★追加：Spawnされたタイミング（ネットワーク変数が安全に使える状態）でマネージャーに登録する
     public override void Spawned()
     {
         // マネージャーを探して登録
@@ -28,7 +26,6 @@ public class BilliardBall : NetworkBehaviour
         }
     }
 
-    // ★追加：消えるタイミングでマネージャーから除外する
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         var manager = BilliardTableManager.Instance;
@@ -45,14 +42,14 @@ public class BilliardBall : NetworkBehaviour
         // 速度が一定以上ある場合のみ移動処理を行う
         if (Velocity.magnitude > stopThreshold)
         {
-            // 1. 位置の更新
+            // 1. 壁との衝突予測と解決
+            HandleWallCollision();
+
+            // 2. 位置の更新
             transform.position += Velocity * Runner.DeltaTime;
 
-            // 2. 摩擦による減速
+            // 3. 摩擦による減速
             Velocity *= friction;
-
-            // 3. 壁（クッション）との衝突判定
-            CheckWallCollision();
         }
         else
         {
@@ -61,32 +58,37 @@ public class BilliardBall : NetworkBehaviour
         }
     }
 
-    private void CheckWallCollision()
+    /// <summary>
+    /// 進行方向にある壁を検知して衝突処理を行います
+    /// </summary>
+    private void HandleWallCollision()
     {
-        Vector3 pos = transform.position;
-        Vector3 vel = Velocity;
+        // 今回のフレームで移動する距離
+        float moveDistance = Velocity.magnitude * Runner.DeltaTime;
 
-        // X方向の壁との判定
-        if (Mathf.Abs(pos.x) + radius > tableWidth)
+        // 移動量がほぼゼロなら判定しない
+        if (moveDistance <= Mathf.Epsilon) return;
+
+        // 進行方向に球（Sphere）を飛ばして壁があるか調べる
+        // ※自身のColliderに当たらないよう注意が必要ですが、SphereCastは通常開始位置のColliderを無視します
+        if (Physics.SphereCast(transform.position, radius, Velocity.normalized, out RaycastHit hit, moveDistance))
         {
-            pos.x = Mathf.Sign(pos.x) * (tableWidth - radius);
-            vel.x *= -1 * bounciness; // 速度を反転して反発
-        }
+            // 当たったオブジェクトが指定されたタグ（壁）か確認
+            if (hit.collider.CompareTag(wallTag))
+            {
+                // 壁の法線を使って反射ベクトルを計算
+                Vector3 reflectDir = Vector3.Reflect(Velocity, hit.normal);
 
-        // Z方向の壁との判定
-        if (Mathf.Abs(pos.z) + radius > tableLength)
-        {
-            pos.z = Mathf.Sign(pos.z) * (tableLength - radius);
-            vel.z *= -1 * bounciness; // 速度を反転して反発
-        }
+                // 速度を更新（反発係数を適用）
+                Velocity = reflectDir * bounciness;
 
-        transform.position = pos;
-        Velocity = vel;
+                // 補足:
+                // 厳密な物理挙動では「衝突点まで移動→反射→残りの距離を移動」としますが、
+                // ここでは簡易的に「速度を反射させる」ことで次のフレームから跳ね返るようにしています。
+            }
+        }
     }
 
-    /// <summary>
-    /// 他のボールとの衝突を解決します（BilliardTableManagerから呼ばれます）
-    /// </summary>
     /// <summary>
     /// 他のボールとの衝突を解決します（BilliardTableManagerから呼ばれます）
     /// </summary>
@@ -126,30 +128,24 @@ public class BilliardBall : NetworkBehaviour
             // お互いに近づいている場合のみ衝突処理を行う
             if (velocityAlongNormal < 0)
             {
-                // 球同士の反発係数（1.0に近いほど完全弾性衝突＝エネルギーロスなし）
-                // 硬い球同士なので通常は 0.9 ～ 0.98 程度
+                // 球同士の反発係数
                 float ballRestitution = 0.98f;
 
                 // --- 手球 (this) の計算 ---
-                // 現在の速度を法線成分と接線成分に分解
                 float v1DotNormal = Vector3.Dot(this.Velocity, normal);
-                Vector3 v1NormalVec = normal * v1DotNormal; // 法線成分ベクトル
-                Vector3 v1TangentVec = this.Velocity - v1NormalVec; // 接線成分ベクトル
+                Vector3 v1NormalVec = normal * v1DotNormal;
+                Vector3 v1TangentVec = this.Velocity - v1NormalVec;
 
                 // --- 相手球 (other) の計算 ---
                 float v2DotNormal = Vector3.Dot(other.Velocity, normal);
                 Vector3 v2NormalVec = normal * v2DotNormal;
                 Vector3 v2TangentVec = other.Velocity - v2NormalVec;
 
-                // --- 1次元の完全弾性衝突公式（質量が等しい場合） ---
-                // 新しい法線速度 v1' = (v1 * (1-e) + v2 * (1+e)) / 2
-                // 新しい法線速度 v2' = (v2 * (1-e) + v1 * (1+e)) / 2
-
+                // --- 1次元の完全弾性衝突公式 ---
                 float v1NormalNew = (v1DotNormal * (1 - ballRestitution) + v2DotNormal * (1 + ballRestitution)) / 2f;
                 float v2NormalNew = (v2DotNormal * (1 - ballRestitution) + v1DotNormal * (1 + ballRestitution)) / 2f;
 
                 // --- 速度の合成 ---
-                // 法線成分は新しく計算した値を使い、接線成分はそのまま維持する
                 this.Velocity = v1TangentVec + (normal * v1NormalNew);
                 other.Velocity = v2TangentVec + (normal * v2NormalNew);
             }

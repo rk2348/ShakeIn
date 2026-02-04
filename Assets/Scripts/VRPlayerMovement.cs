@@ -106,18 +106,46 @@ public class VRPlayerMovement : NetworkBehaviour
 
     // ★追加: 衝突判定
     // プレイヤーオブジェクトに Collider と Rigidbody が必要です。
+    // ★追加: 衝突判定
     private void OnCollisionEnter(Collision collision)
     {
         // 自分の動作でなければ無視
         if (!HasStateAuthority) return;
 
         // 衝突相手が「BilliardBall」コンポーネントを持っているかチェック
-        // またはタグで判定する場合: if (collision.gameObject.CompareTag("Ball"))
-        if (collision.gameObject.GetComponent<BilliardBall>() != null)
+        var ball = collision.gameObject.GetComponent<BilliardBall>();
+        if (ball != null)
         {
-            // 速度をゼロにして停止させる
+            // -----------------------------------------------------------
+            // ここから: ボールを弾く処理を追加
+            // -----------------------------------------------------------
+
+            // 1. ボールを動かす権限がない場合、リクエストする（Sharedモードなど）
+            if (!ball.Object.HasStateAuthority)
+            {
+                ball.Object.RequestStateAuthority();
+            }
+
+            // 2. 弾く方向を計算 (自分中心 -> ボール中心)
+            Vector3 dir = (ball.transform.position - transform.position).normalized;
+            dir.y = 0; // 水平方向に限定
+
+            // 3. 弾く強さを決定
+            // currentVelocity（慣性移動）の大きさを使う。
+            // もし「右スティック歩行」などで currentVelocity が 0 の場合でも
+            // 最低限の力で弾けるように Math.Max で下限値を設定しておくと遊びやすいです。
+            float power = Mathf.Max(currentVelocity.magnitude, 1.0f);
+
+            // 4. ボールに速度を適用 (反発係数として 1.2倍 などを掛けて調整可)
+            ball.Velocity = dir * power * 1.2f;
+
+            // -----------------------------------------------------------
+            // ここまで
+            // -----------------------------------------------------------
+
+            // 速度をゼロにして停止させる（既存の処理）
             currentVelocity = Vector3.zero;
-            Debug.Log($"【停止】ボール ({collision.gameObject.name}) に衝突したため停止しました。");
+            Debug.Log($"【衝突】ボール ({collision.gameObject.name}) に当たり、弾きました。");
         }
     }
 }
