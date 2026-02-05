@@ -1,3 +1,4 @@
+// WorldStateSender.cs (PC側)
 using System;
 using System.Text;
 using System.Threading;
@@ -8,17 +9,14 @@ using UnityEngine;
 public class WorldStateSender : MonoBehaviour
 {
     [Header("WebSocket設定")]
-    [SerializeField] private string serverUrl = "wss://b400-202-13-170-200.ngrok-free.app";
+    [SerializeField] private string serverUrl = "wss://b400-202-13-170-200.ngrok-free.app"; // 前と同じURL
     [SerializeField] private string clientId = "pc-sender";
-    [SerializeField] private float sendInterval = 0.033f; // 約30fps
 
-    [Header("最適化設定")]
-    // これ以上動いたら送信する（1mm / 0.1度）
-    [SerializeField] private float moveThreshold = 0.001f; 
-    [SerializeField] private float angleThreshold = 0.1f;
+    // 送信間隔（秒）。0.033f だと 約30fps。早すぎると詰まるので調整。
+    [SerializeField] private float sendInterval = 0.033f;
 
     [Header("同期対象オブジェクト")]
-    [SerializeField] private Transform selfTransform; // 自分
+    [SerializeField] private Transform selfTransform; // 自分 (VRPlayer)
     [SerializeField] private Transform ball1;         // 球 1
     [SerializeField] private Transform ball2;         // 球 2
 
@@ -26,12 +24,7 @@ public class WorldStateSender : MonoBehaviour
     private CancellationTokenSource cts = new CancellationTokenSource();
     private float lastSendTime;
 
-    // 前回の位置・回転を覚えておく変数
-    private Vector3 prevPosSelf, prevPosB1, prevPosB2;
-    private Quaternion prevRotSelf, prevRotB1, prevRotB2;
-    private bool firstSend = true; // 初回は必ず送る用
-
-    // ==== データ構造 ====
+    // ==== 送信するデータ構造 ====
     [Serializable]
     private class ObjectState
     {
@@ -51,7 +44,7 @@ public class WorldStateSender : MonoBehaviour
     [Serializable]
     private class StateMessage
     {
-        public string type = "state";
+        public string type = "state"; // 識別用タグ
         public string clientId;
         public WorldStatePayload data;
     }
@@ -78,42 +71,20 @@ public class WorldStateSender : MonoBehaviour
 
     private void Update()
     {
+        // 通信が開いていなければ何もしない
         if (socket == null || socket.State != WebSocketState.Open) return;
 
+        // 一定間隔で送信
         if (Time.time - lastSendTime >= sendInterval)
         {
-            // ★変更チェック：どれか一つでも動いていたら送信
-            if (HasChanged(selfTransform, ref prevPosSelf, ref prevRotSelf) ||
-                HasChanged(ball1, ref prevPosB1, ref prevRotB1) ||
-                HasChanged(ball2, ref prevPosB2, ref prevRotB2) ||
-                firstSend)
-            {
-                SendWorldState();
-                lastSendTime = Time.time;
-                firstSend = false;
-            }
+            SendWorldState();
+            lastSendTime = Time.time;
         }
-    }
-
-    // 変化判定 & 履歴更新メソッド
-    private bool HasChanged(Transform t, ref Vector3 prevPos, ref Quaternion prevRot)
-    {
-        if (t == null) return false;
-
-        bool moved = Vector3.Distance(t.position, prevPos) > moveThreshold;
-        bool turned = Quaternion.Angle(t.rotation, prevRot) > angleThreshold;
-
-        if (moved || turned)
-        {
-            prevPos = t.position;
-            prevRot = t.rotation;
-            return true;
-        }
-        return false;
     }
 
     private async void SendWorldState()
     {
+        // 1. データを詰める
         var payload = new WorldStatePayload
         {
             player = CreateState(selfTransform),
@@ -128,9 +99,11 @@ public class WorldStateSender : MonoBehaviour
             data = payload
         };
 
+        // 2. JSON化
         string json = JsonUtility.ToJson(message);
         byte[] bytes = Encoding.UTF8.GetBytes(json);
 
+        // 3. 送信
         try
         {
             await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cts.Token);
@@ -141,6 +114,7 @@ public class WorldStateSender : MonoBehaviour
         }
     }
 
+    // Transform から軽量なデータクラスを作るヘルパー
     private ObjectState CreateState(Transform t)
     {
         if (t == null) return new ObjectState();
