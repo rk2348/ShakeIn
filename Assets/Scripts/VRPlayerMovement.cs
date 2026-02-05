@@ -1,18 +1,21 @@
 // VRPlayerMovement.cs
 using System;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Net.WebSockets;  // ★ 追加
 using UnityEngine;
 using Fusion;
-using NativeWebSocket; // ★ これを追加（パッケージ導入済み前提）
 
 public class VRPlayerMovement : NetworkBehaviour
 {
     [Header("WebSocket設定")]
-    [SerializeField] private string serverUrl = "ws://localhost:8080";
+    [SerializeField] private string serverUrl = "wss://b400-202-13-170-200.ngrok-free.app";
     [SerializeField] private string clientId = "vr-1";
 
-    private WebSocket socket;
+    // .NET 標準の WebSocket クライアント
+    private ClientWebSocket socket;
+    private CancellationTokenSource cts = new CancellationTokenSource();
 
     [Header("ビリヤード: ショット設定")]
     [SerializeField] private float launchPower = 10.0f;
@@ -25,8 +28,6 @@ public class VRPlayerMovement : NetworkBehaviour
     private Transform cameraRigRoot;
     private Transform centerEyeAnchor;
     private Vector3 currentVelocity;
-
-    // ===== JSON 用の小さなクラス群 =====
 
     [Serializable]
     private class InputPayloadData
@@ -48,42 +49,19 @@ public class VRPlayerMovement : NetworkBehaviour
         public InputPayloadData data;
     }
 
-    // ===== WebSocket 接続まわり =====
+    // ===== WebSocket 接続 =====
 
     private async void Awake()
     {
-        // HasStateAuthority は Spawned でしか正しくないので、ここではまだ接続だけ用意しておく
-        socket = new WebSocket(serverUrl);
+        socket = new ClientWebSocket();
 
-        socket.OnOpen += () =>
-        {
-            Debug.Log("[WS] Connected to server");
-        };
-
-        socket.OnError += (e) =>
-        {
-            Debug.LogError("[WS] Error: " + e);
-        };
-
-        socket.OnClose += (e) =>
-        {
-            Debug.Log("[WS] Closed with code: " + e);
-        };
-
-        socket.OnMessage += (bytes) =>
-        {
-            var msg = Encoding.UTF8.GetString(bytes);
-            Debug.Log("[WS] Received: " + msg);
-        };
-
-        await Connect();
-    }
-
-    private async Task Connect()
-    {
         try
         {
-            await socket.Connect();
+            // ws:// を Uri に変換
+            var uri = new Uri(serverUrl);
+            Debug.Log("[WS] Connecting to " + uri);
+            await socket.ConnectAsync(uri, cts.Token);
+            Debug.Log("[WS] Connected: " + socket.State);
         }
         catch (Exception e)
         {
@@ -91,18 +69,23 @@ public class VRPlayerMovement : NetworkBehaviour
         }
     }
 
-    private void Update()
-    {
-#if !UNITY_WEBGL || UNITY_EDITOR
-        socket?.DispatchMessageQueue();
-#endif
-    }
-
     private async void OnApplicationQuit()
     {
-        if (socket != null)
+        try
         {
-            await socket.Close();
+            if (socket != null && socket.State == WebSocketState.Open)
+            {
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Quit", cts.Token);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("[WS] Close Exception: " + e);
+        }
+        finally
+        {
+            cts.Cancel();
+            socket?.Dispose();
         }
     }
 
@@ -133,26 +116,22 @@ public class VRPlayerMovement : NetworkBehaviour
             return;
         }
 
-        // === ここでは「入力を読んでサーバーへ送るだけ」にする ===
-
         Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
         bool pressA = OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch);
-
         Vector2 rightInput = OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick);
 
         SendVrInput(leftInput, rightInput, pressA);
 
-        // 実際の移動処理は一旦無視したいなら、ここでは position をいじらない
-        // （今は「サーバーに入力が飛べば勝ち」だから）
+        // 今は「入力だけ送る」フェーズなので、移動処理はオフにしていてOK
     }
 
-    // ===== 入力送信用メソッド =====
+    // ===== 入力送信用 =====
 
     private async void SendVrInput(Vector2 leftStick, Vector2 rightStick, bool pressA)
     {
+        // WebSocket が開いていなければ送らない
         if (socket == null || socket.State != WebSocketState.Open)
         {
-            // まだ接続されていない/切れている場合は何もしない
             return;
         }
 
@@ -171,10 +150,12 @@ public class VRPlayerMovement : NetworkBehaviour
         };
 
         string json = JsonUtility.ToJson(payload);
+        byte[] bytes = Encoding.UTF8.GetBytes(json);
+        var segment = new ArraySegment<byte>(bytes);
 
         try
         {
-            await socket.SendText(json);
+            await socket.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token);
             // Debug.Log("[WS] Sent: " + json);
         }
         catch (Exception e)
@@ -185,6 +166,6 @@ public class VRPlayerMovement : NetworkBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
-        // 今回は無視でOK（ローカルでボール動かさないなら）
+        // 今回は無視でOK
     }
 }

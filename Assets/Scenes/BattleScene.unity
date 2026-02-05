@@ -4490,6 +4490,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da9b764480d0d62419187477dcececdd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  serverUrl: wss://b400-202-13-170-200.ngrok-free.app
+  clientId: vr-1
   launchPower: 10
   friction: 0.98
   stopThreshold: 0.01
