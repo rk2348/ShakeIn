@@ -990,9 +990,6 @@ GameObject:
   - component: {fileID: 899497022}
   - component: {fileID: 899497021}
   - component: {fileID: 899497020}
-  - component: {fileID: 899497024}
-  - component: {fileID: 899497026}
-  - component: {fileID: 899497025}
   m_Layer: 0
   m_Name: Sphere (2)
   m_TagString: Untagged
@@ -1068,61 +1065,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &899497024
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 899497018}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 158639473, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _stateAuthorityChangeErrorCorrectionDelta: 0
-  SyncScale: 0
-  SyncParent: 0
-  _autoAOIOverride: 1
-  DisableSharedModeInterpolation: 0
---- !u!114 &899497025
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 899497018}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SortKey: 3720156026
-  ObjectInterest: 1
-  Flags: 262145
-  NestedObjects: []
-  NetworkedBehaviours:
-  - {fileID: 899497024}
-  - {fileID: 899497026}
-  ForceRemoteRenderTimeframe: 0
---- !u!114 &899497026
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 899497018}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 93b82be183ce11948b5a2df61997348a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _Velocity: {x: 0, y: 0, z: 0}
-  radius: 0.03
-  friction: 0.985
-  stopThreshold: 0.01
-  bounciness: 0.8
-  wallTag: Wall
 --- !u!1 &903647534
 GameObject:
   m_ObjectHideFlags: 0
@@ -1134,9 +1076,6 @@ GameObject:
   - component: {fileID: 903647538}
   - component: {fileID: 903647537}
   - component: {fileID: 903647536}
-  - component: {fileID: 903647540}
-  - component: {fileID: 903647542}
-  - component: {fileID: 903647541}
   m_Layer: 0
   m_Name: Sphere (1)
   m_TagString: Untagged
@@ -1212,61 +1151,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &903647540
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 903647534}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 158639473, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _stateAuthorityChangeErrorCorrectionDelta: 0
-  SyncScale: 0
-  SyncParent: 0
-  _autoAOIOverride: 1
-  DisableSharedModeInterpolation: 0
---- !u!114 &903647541
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 903647534}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SortKey: 3059061436
-  ObjectInterest: 1
-  Flags: 262145
-  NestedObjects: []
-  NetworkedBehaviours:
-  - {fileID: 903647540}
-  - {fileID: 903647542}
-  ForceRemoteRenderTimeframe: 0
---- !u!114 &903647542
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 903647534}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 93b82be183ce11948b5a2df61997348a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _Velocity: {x: 0, y: 0, z: 0}
-  radius: 0.03
-  friction: 0.985
-  stopThreshold: 0.01
-  bounciness: 0.8
-  wallTag: Wall
 --- !u!1 &937111216
 GameObject:
   m_ObjectHideFlags: 0
@@ -4286,25 +4170,6 @@ MonoBehaviour:
   clientId: sim-1
   ball1: {fileID: 528028158}
   ball2: {fileID: 903647538}
---- !u!114 &9131936712141835191
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9131936712141933840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SortKey: 1239080198
-  ObjectInterest: 1
-  Flags: 262145
-  NestedObjects: []
-  NetworkedBehaviours:
-  - {fileID: 9164148879991304113}
-  ForceRemoteRenderTimeframe: 0
 --- !u!1 &9131936712141933840
 GameObject:
   m_ObjectHideFlags: 0
@@ -4318,9 +4183,6 @@ GameObject:
   - component: {fileID: 9131936712136456436}
   - component: {fileID: 9164148879991304112}
   - component: {fileID: 9131936712141835190}
-  - component: {fileID: 9131936712141835191}
-  - component: {fileID: 9164148879991304113}
-  - component: {fileID: 9164148879991304115}
   m_Layer: 0
   m_Name: OVRCameraRig
   m_TagString: Untagged
@@ -4731,45 +4593,6 @@ MonoBehaviour:
   - <Keyboard>/leftAlt
   - <Keyboard>/rightAlt
   - <Keyboard>/f2
---- !u!114 &9164148879991304113
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9131936712141933840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6b2310ff41a4b69439556e59c80cda18, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  cueBall: {fileID: 3757601478534525136, guid: 602ba417dac7c8444aa0ba5eee1983c4, type: 3}
-  hitMultiplier: 1.5
-  minHitVelocity: 0.2
-  rightHandAnchor: {fileID: 9131936712142316770}
-  autoShootPower: 3
-  requiredHoldTime: 1
---- !u!135 &9164148879991304115
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9131936712141933840}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 0.75
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
