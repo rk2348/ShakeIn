@@ -148,21 +148,21 @@ public class VRPlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (ballRigidbody == null) return;
-
-        var moveDir = new Vector3(latestLeftInput.x, 0f, latestLeftInput.y);
-        if (moveDir.sqrMagnitude > 0.01f)
+        if (ballRigidbody == null)
         {
-            ballRigidbody.AddForce(moveDir.normalized * moveForce, ForceMode.Acceleration);
+            Debug.LogWarning("[WS-PC] ballRigidbody is null");
+            return;
         }
 
+        // デバッグ用: Aボタン押したら絶対に上にジャンプ
         if (latestPressA)
         {
-            var dashDir = (moveDir.sqrMagnitude > 0.01f ? moveDir.normalized : Vector3.forward);
-            ballRigidbody.AddForce(dashDir * dashForce, ForceMode.VelocityChange);
+            Debug.Log("[WS-PC] Dash TEST: Upward jump");
+            ballRigidbody.AddForce(Vector3.up * 10f, ForceMode.VelocityChange);
             latestPressA = false;
         }
     }
+
 
 
     private async void OnApplicationQuit()
