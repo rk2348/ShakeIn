@@ -39,6 +39,9 @@ public class VRBallInteraction : NetworkBehaviour
         {
             if (handVelocity.magnitude > minHitVelocity)
             {
+                //‰Eè‚Å‚Í‚¶‚¢‚½Player‚ğ‹L˜^
+                cueBall.LastHitter = Object.InputAuthority;
+
                 Vector3 newVelocity = handVelocity * hitMultiplier;
                 newVelocity.y = 0;
                 cueBall.Velocity = newVelocity;
@@ -83,6 +86,9 @@ public class VRBallInteraction : NetworkBehaviour
     private void FireBall(Vector2 direction)
     {
         Debug.Log("y”­Ëz—­‚ßŒ‚‚¿ÀsI");
+
+        //ÅŒã‚ÉG‚ê‚½Player‚ğ‹L˜^
+        cueBall.LastHitter = Object.InputAuthority;
 
         Vector3 shootVelocity = new Vector3(direction.x, 0, direction.y).normalized * autoShootPower;
 
