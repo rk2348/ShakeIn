@@ -3,17 +3,17 @@ using Fusion;
 
 public class BilliardBall : NetworkBehaviour
 {
-    [Networked] public Vector3 Velocity { get; set; } //ネットワーク同期される速度
-    [Networked] public PlayerRef LastHitter { get; set; } //【追加】最後に触れたプレイヤー
+    [Networked] public Vector3 Velocity { get; set; }
+    [Networked] public PlayerRef LastHitter { get; set; }
 
     [Header("物理設定")]
-    [SerializeField] public float radius = 0.03f;     //ボールの半径
-    [SerializeField] private float friction = 0.985f;  //摩擦
-    [SerializeField] private float stopThreshold = 0.01f; //停止とみなす速度
-    [SerializeField] private float bounciness = 0.8f;  //クッションの反発係数
+    [SerializeField] public float radius = 0.03f;
+    [SerializeField] private float friction = 0.985f;
+    [SerializeField] private float stopThreshold = 0.01f;
+    [SerializeField] private float bounciness = 0.8f;
 
     [Header("壁の設定")]
-    [SerializeField] private string wallTag = "Wall"; //壁とみなすオブジェクトのタグ
+    [SerializeField] private string wallTag = "Wall";
 
     public override void Spawned()
     {
@@ -30,26 +30,20 @@ public class BilliardBall : NetworkBehaviour
     {
         var manager = BilliardTableManager.Instance;
         if (manager == null) manager = FindObjectOfType<BilliardTableManager>();
-
-        if (manager != null)
-        {
-            manager.UnregisterBall(this);
-        }
+        if (manager != null) manager.UnregisterBall(this);
     }
 
     public override void FixedUpdateNetwork()
     {
+        // 移動処理
         if (Velocity.magnitude > stopThreshold)
         {
             HandleWallCollision();
-
             transform.position += Velocity * Runner.DeltaTime;
-
             Velocity *= friction;
         }
         else
         {
-            // 速度が極小になったら完全停止
             Velocity = Vector3.zero;
         }
     }
@@ -57,17 +51,15 @@ public class BilliardBall : NetworkBehaviour
     private void HandleWallCollision()
     {
         float moveDistance = Velocity.magnitude * Runner.DeltaTime;
-
         if (moveDistance <= Mathf.Epsilon) return;
 
+        // 壁との衝突検知
         if (Physics.SphereCast(transform.position, radius, Velocity.normalized, out RaycastHit hit, moveDistance))
         {
             if (hit.collider.CompareTag(wallTag))
             {
-                //壁の法線を使って反射ベクトル計算
+                // 反射計算
                 Vector3 reflectDir = Vector3.Reflect(Velocity, hit.normal);
-
-                //反発係数を適用して速度を毎フレーム更新
                 Velocity = reflectDir * bounciness;
             }
         }
@@ -75,29 +67,30 @@ public class BilliardBall : NetworkBehaviour
 
     public void ResolveBallCollision(BilliardBall other)
     {
-        //念の為
         if (!Object.IsValid || !other.Object.IsValid) return;
 
         Vector3 delta = transform.position - other.transform.position;
         float distance = delta.magnitude;
         float minDistance = this.radius + other.radius;
 
+        // ボール同士の重なりチェック
         if (distance < minDistance)
         {
-            //めり込み防止
             Vector3 normal = delta.normalized;
             if (distance == 0) normal = Vector3.forward;
 
+            // 押し出し処理
             float overlap = minDistance - distance;
-
             transform.position += normal * (overlap / 2f);
             other.transform.position -= normal * (overlap / 2f);
 
             Vector3 relativeVelocity = this.Velocity - other.Velocity;
             float velocityAlongNormal = Vector3.Dot(relativeVelocity, normal);
 
+            // 近づき合っている場合のみ衝突処理
             if (velocityAlongNormal < 0)
             {
+                // 物理挙動の計算
                 float ballRestitution = 0.98f;
 
                 float v1DotNormal = Vector3.Dot(this.Velocity, normal);

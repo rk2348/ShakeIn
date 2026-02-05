@@ -111,6 +111,7 @@ MonoBehaviour:
   stopThreshold: 0.01
   bounciness: 0.8
   wallTag: Wall
+  collisionClip: {fileID: 8300000, guid: 702d38d03659d2a4dbd5fe0fc0abb03c, type: 3}
 --- !u!1 &6692798332582441965
 GameObject:
   m_ObjectHideFlags: 0
@@ -318,3 +319,4 @@ MonoBehaviour:
   stopThreshold: 0.01
   bounciness: 0.8
   wallTag: Wall
+  collisionClip: {fileID: 0}
