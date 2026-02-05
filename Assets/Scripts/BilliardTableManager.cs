@@ -8,13 +8,14 @@ public class BilliardTableManager : NetworkBehaviour
 
     public static BilliardTableManager Instance { get; private set; }
 
-    // Dictionaryは => default; で初期化
     [Networked, Capacity(4)] private NetworkDictionary<PlayerRef, int> PlayerScores => default;
 
     public override void Spawned()
     {
         Instance = this;
     }
+
+    // ★ Updateメソッド（Sキーのテスト）は削除しました ★
 
     public void RegisterBall(BilliardBall ball)
     {
@@ -40,10 +41,8 @@ public class BilliardTableManager : NetworkBehaviour
         }
     }
 
-    // スコア加算
     public void AddScore(PlayerRef player, int points)
     {
-        // 【修正】IsValid ではなく PlayerRef.None と比較してチェックする
         if (player != PlayerRef.None)
         {
             int current = 0;
@@ -57,7 +56,6 @@ public class BilliardTableManager : NetworkBehaviour
         }
     }
 
-    // スコア取得
     public int GetScore(PlayerRef player)
     {
         if (PlayerScores.ContainsKey(player))
