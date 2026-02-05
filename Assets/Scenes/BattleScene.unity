@@ -3523,6 +3523,37 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 126
   m_CollisionDetection: 0
+--- !u!1 &2022883694
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2022883695}
+  m_Layer: 0
+  m_Name: RespawnPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2022883695
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2022883694}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 28.99898, y: -25.659472, z: 9.617675}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &2074102279
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -6452,6 +6483,7 @@ GameObject:
   - component: {fileID: 9131936712141835191}
   - component: {fileID: 9164148879991304113}
   - component: {fileID: 9164148879991304115}
+  - component: {fileID: 9164148879991304116}
   m_Layer: 0
   m_Name: OVRCameraRig
   m_TagString: Untagged
@@ -6901,6 +6933,20 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.75
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &9164148879991304116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9131936712141933840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b68ea78540ae9645bb23e74817a04a6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  deadLineY: -2.5
+  respawnPosition: {fileID: 2022883695}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -6921,3 +6967,4 @@ SceneRoots:
   - {fileID: 1912901282}
   - {fileID: 626475151}
   - {fileID: 1651308828}
+  - {fileID: 2022883695}
