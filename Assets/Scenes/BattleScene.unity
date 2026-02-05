@@ -4392,7 +4392,7 @@ Transform:
   m_GameObject: {fileID: 2022883694}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 28.99898, y: -25.659472, z: 9.617675}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -7942,6 +7942,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   deadLineY: -2.5
   respawnPosition: {fileID: 2022883695}
+  maxRespawn: 2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
