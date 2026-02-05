@@ -3,7 +3,7 @@ using UnityEngine;
 public class ConstrainYAxis : MonoBehaviour
 {
     // ŒÅ’è‚µ‚½‚¢YŽ²‚Ì’l
-    private const float FixedY = -0.8f;
+    public float FixedY = -0.8f;
 
     void Update()
     {
