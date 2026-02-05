@@ -4,9 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.WebSockets;
 using UnityEngine;
-// using Fusion; // Fusionは一旦外す
 
-// NetworkBehaviour ではなく MonoBehaviour にする
 public class VRPlayerMovement : MonoBehaviour
 {
     [Header("WebSocket設定")]
@@ -20,11 +18,10 @@ public class VRPlayerMovement : MonoBehaviour
     private ClientWebSocket socket;
     private CancellationTokenSource cts = new CancellationTokenSource();
     
-    // OVRCameraRig自身につけるなら、cameraRigRoot は transform (自分自身) でOK
     private Transform cameraRigRoot;
     private Transform centerEyeAnchor;
 
-    // ==== データ構造 (変更なし) ====
+    // ==== データ構造 ====
     [Serializable] private class ObjectState { public float posX, posY, posZ; public float rotX, rotY, rotZ, rotW; }
     [Serializable] private class WorldStatePayload { public ObjectState player; public ObjectState ball1; public ObjectState ball2; public long timestamp; }
     [Serializable] private class ServerMessage { public string type; public string clientId; public WorldStatePayload data; }
@@ -37,8 +34,6 @@ public class VRPlayerMovement : MonoBehaviour
 
     private async void Start()
     {
-        // OVRCameraRigのセットアップ
-        // このスクリプトが OVRCameraRig についているなら、自分自身を取得
         var rig = GetComponent<OVRCameraRig>();
         if (rig != null)
         {
@@ -47,7 +42,6 @@ public class VRPlayerMovement : MonoBehaviour
         }
         else
         {
-            // もしOVRCameraRigの子オブジェクト等につけている場合への保険
             rig = FindObjectOfType<OVRCameraRig>();
             if (rig != null)
             {
@@ -65,7 +59,7 @@ public class VRPlayerMovement : MonoBehaviour
         try
         {
             var uri = new Uri(serverUrl);
-            Debug.Log("[WS-VR] Connecting...");
+            Debug.Log($"[WS-VR] Connecting to {uri} ...");
             await socket.ConnectAsync(uri, cts.Token);
             Debug.Log("[WS-VR] Connected");
             _ = ReceiveLoop();
@@ -85,7 +79,12 @@ public class VRPlayerMovement : MonoBehaviour
             {
                 var segment = new ArraySegment<byte>(buffer);
                 var result = await socket.ReceiveAsync(segment, cts.Token);
-                if (result.MessageType == WebSocketMessageType.Close) break;
+                
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    Debug.Log("[WS-VR] Closed by Server");
+                    break;
+                }
 
                 int count = result.Count;
                 while (!result.EndOfMessage)
@@ -96,12 +95,18 @@ public class VRPlayerMovement : MonoBehaviour
                     count += result.Count;
                 }
 
+                // ★ログ追加: 受信したバイト数を表示
+                // Debug.Log($"[WS-VR] Received {count} bytes"); 
+
                 string json = Encoding.UTF8.GetString(buffer, 0, count);
-                // Unityメインスレッド以外でJSONパースや代入をするとエラーになることがあるため、
-                // 本来はContext同期が必要だが、JsonUtilityはスレッドセーフな場合が多いので一旦このまま
                 HandleServerMessage(json);
             }
-            catch (Exception) { break; }
+            catch (Exception e) 
+            { 
+                // ★エラーがあれば必ず表示してループを抜ける
+                Debug.LogError("[WS-VR] ReceiveLoop Error: " + e);
+                break; 
+            }
         }
     }
 
@@ -122,20 +127,24 @@ public class VRPlayerMovement : MonoBehaviour
 
                 targetPosB2 = new Vector3(d.ball2.posX, d.ball2.posY, d.ball2.posZ);
                 targetRotB2 = new Quaternion(d.ball2.rotX, d.ball2.rotY, d.ball2.rotZ, d.ball2.rotW);
+
+                // ★ログ追加: 正常にパースできたら座標を表示 (毎フレームだと多いので間引いても良いが、まずは確認のため出す)
+                // Debug.Log($"[WS-VR] Update Pos: Player({d.player.posX}) Ball1({d.ball1.posX})");
             }
         }
-        catch { }
+        catch (Exception e)
+        {
+            Debug.LogError("[WS-VR] JSON Parse Error: " + e);
+        }
     }
 
-    // FixedUpdateNetwork ではなく通常の Update を使用
     private void Update()
     {
         if (cameraRigRoot == null || centerEyeAnchor == null) return;
 
-        // 1. 座標反映 (Lerpでなめらかに)
+        // 1. 座標反映
         if (targetPosPlayer.HasValue)
             cameraRigRoot.position = Vector3.Lerp(cameraRigRoot.position, targetPosPlayer.Value, 0.5f);
-            // ※VR酔いを防ぐため、プレイヤーの回転(Rotation)は同期せず、HMDの自由な動きに任せるのが一般的です
 
         if (ball1 != null && targetPosB1.HasValue)
         {
@@ -167,6 +176,7 @@ public class VRPlayerMovement : MonoBehaviour
 
         if (pressA)
         {
+            Debug.Log("[WS-VR] Sending Input (A Button)"); // ★送信確認ログ
             SendVrInput(leftInput, rightInput, pressA, forward, right, launchDir);
         }
     }
@@ -196,7 +206,7 @@ public class VRPlayerMovement : MonoBehaviour
         {
             await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cts.Token);
         }
-        catch (Exception e) { Debug.LogError("[WS] Send Error: " + e); }
+        catch (Exception e) { Debug.LogError("[WS-VR] Send Error: " + e); }
     }
 
     private async void OnApplicationQuit()
