@@ -1,32 +1,28 @@
-// VRPlayerMovement.cs
+// VRPlayerMovement.cs（PC側用・入力受信＆球操作）
 using System;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Net.WebSockets;
 using UnityEngine;
-using Fusion;
-using NativeWebSocket; // ★ これを追加（パッケージ導入済み前提）
 
-public class VRPlayerMovement : NetworkBehaviour
+public class VRPlayerMovement : MonoBehaviour
 {
     [Header("WebSocket設定")]
-    [SerializeField] private string serverUrl = "ws://localhost:8080";
-    [SerializeField] private string clientId = "vr-1";
+    [SerializeField] private string serverUrl = "wss://b400-202-13-170-200.ngrok-free.app";
+    [SerializeField] private string clientId = "sim-1"; // PC側はシミュレータなので別IDにしておく
 
-    private WebSocket socket;
+    private ClientWebSocket socket;
+    private CancellationTokenSource cts = new CancellationTokenSource();
 
-    [Header("ビリヤード: ショット設定")]
-    [SerializeField] private float launchPower = 10.0f;
-    [SerializeField] private float friction = 0.98f;
-    [SerializeField] private float stopThreshold = 0.01f;
+    [Header("操作対象のボール")]
+    [SerializeField] private Rigidbody ballRigidbody; // 動かしたい球の Rigidbody をここにアサイン
 
-    [Header("通常: スティック移動設定")]
-    [SerializeField] private float normalMoveSpeed = 2.0f;
+    [Header("移動パラメータ")]
+    [SerializeField] private float moveForce = 5.0f;   // 左スティックで加える力
+    [SerializeField] private float dashForce = 10.0f;  // Aボタンでのショットの力
 
-    private Transform cameraRigRoot;
-    private Transform centerEyeAnchor;
-    private Vector3 currentVelocity;
-
-    // ===== JSON 用の小さなクラス群 =====
+    // ===== 受信した入力を保持する構造体 =====
 
     [Serializable]
     private class InputPayloadData
@@ -42,149 +38,150 @@ public class VRPlayerMovement : NetworkBehaviour
     [Serializable]
     private class InputMessage
     {
-        public string type = "input";
+        public string type;
         public string clientId;
-        public string role = "vr";
+        public string role;
         public InputPayloadData data;
     }
 
-    // ===== WebSocket 接続まわり =====
+    private Vector2 latestLeftInput = Vector2.zero;
+    private bool latestPressA = false;
 
-    private async void Awake()
+    private void Awake()
     {
-        // HasStateAuthority は Spawned でしか正しくないので、ここではまだ接続だけ用意しておく
-        socket = new WebSocket(serverUrl);
-
-        socket.OnOpen += () =>
+        if (ballRigidbody == null)
         {
-            Debug.Log("[WS] Connected to server");
-        };
+            ballRigidbody = GetComponent<Rigidbody>();
+        }
 
-        socket.OnError += (e) =>
-        {
-            Debug.LogError("[WS] Error: " + e);
-        };
-
-        socket.OnClose += (e) =>
-        {
-            Debug.Log("[WS] Closed with code: " + e);
-        };
-
-        socket.OnMessage += (bytes) =>
-        {
-            var msg = Encoding.UTF8.GetString(bytes);
-            Debug.Log("[WS] Received: " + msg);
-        };
-
-        await Connect();
+        socket = new ClientWebSocket();
+        ConnectAndStartReceiveLoop();
     }
 
-    private async Task Connect()
+    private async void ConnectAndStartReceiveLoop()
     {
         try
         {
-            await socket.Connect();
+            var uri = new Uri(serverUrl);
+            Debug.Log("[WS-PC] Connecting to " + uri);
+            await socket.ConnectAsync(uri, cts.Token);
+            Debug.Log("[WS-PC] Connected: " + socket.State);
+
+            // 接続できたら受信ループ開始
+            _ = ReceiveLoop();
         }
         catch (Exception e)
         {
-            Debug.LogError("[WS] Connect Exception: " + e);
+            Debug.LogError("[WS-PC] Connect Exception: " + e);
         }
     }
 
-    private void Update()
+    private async Task ReceiveLoop()
     {
-#if !UNITY_WEBGL || UNITY_EDITOR
-        socket?.DispatchMessageQueue();
-#endif
+        var buffer = new byte[4096];
+
+        while (socket != null && socket.State == WebSocketState.Open)
+        {
+            try
+            {
+                var segment = new ArraySegment<byte>(buffer);
+                WebSocketReceiveResult result =
+                    await socket.ReceiveAsync(segment, cts.Token);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    Debug.Log("[WS-PC] Server closed connection");
+                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed by server", cts.Token);
+                    break;
+                }
+
+                int count = result.Count;
+                while (!result.EndOfMessage)
+                {
+                    if (count >= buffer.Length)
+                    {
+                        Debug.LogWarning("[WS-PC] Message too long, truncating");
+                        break;
+                    }
+                    segment = new ArraySegment<byte>(buffer, count, buffer.Length - count);
+                    result = await socket.ReceiveAsync(segment, cts.Token);
+                    count += result.Count;
+                }
+
+                string json = Encoding.UTF8.GetString(buffer, 0, count);
+                // Debug.Log("[WS-PC] Received: " + json);
+
+                HandleInputJson(json);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[WS-PC] Receive Exception: " + e);
+                break;
+            }
+        }
     }
+
+    private void HandleInputJson(string json)
+    {
+        Debug.Log("[WS-PC] Raw json: " + json); // ★ これ追加
+
+        try
+        {
+            var msg = JsonUtility.FromJson<InputMessage>(json);
+            if (msg == null || msg.type != "input" || msg.data == null)
+            {
+                Debug.LogWarning("[WS-PC] Unknown or invalid message");
+                return;
+            }
+
+            latestLeftInput = new Vector2(msg.data.stickLeftX, msg.data.stickLeftY);
+            latestPressA = msg.data.pressA;
+
+            Debug.Log($"[WS-PC] Parsed input: L({latestLeftInput.x}, {latestLeftInput.y}) A={latestPressA}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("[WS-PC] JSON Parse Exception: " + e + " / raw: " + json);
+        }
+    }
+
+
+    private void FixedUpdate()
+    {
+        if (ballRigidbody == null) return;
+
+        var moveDir = new Vector3(latestLeftInput.x, 0f, latestLeftInput.y);
+        if (moveDir.sqrMagnitude > 0.01f)
+        {
+            ballRigidbody.AddForce(moveDir.normalized * moveForce, ForceMode.Acceleration);
+        }
+
+        if (latestPressA)
+        {
+            var dashDir = (moveDir.sqrMagnitude > 0.01f ? moveDir.normalized : Vector3.forward);
+            ballRigidbody.AddForce(dashDir * dashForce, ForceMode.VelocityChange);
+            latestPressA = false;
+        }
+    }
+
 
     private async void OnApplicationQuit()
     {
-        if (socket != null)
-        {
-            await socket.Close();
-        }
-    }
-
-    // ===== Fusion ライフサイクル =====
-
-    public override void Spawned()
-    {
-        if (HasStateAuthority)
-        {
-            var rig = FindObjectOfType<OVRCameraRig>();
-            if (rig != null)
-            {
-                cameraRigRoot = rig.transform;
-                centerEyeAnchor = rig.centerEyeAnchor;
-                Debug.Log("OVRCameraRig を発見、入力送信モード開始");
-            }
-            else
-            {
-                Debug.LogError("OVRCameraRig が見つかりません");
-            }
-        }
-    }
-
-    public override void FixedUpdateNetwork()
-    {
-        if (!HasStateAuthority || cameraRigRoot == null || centerEyeAnchor == null)
-        {
-            return;
-        }
-
-        // === ここでは「入力を読んでサーバーへ送るだけ」にする ===
-
-        Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
-        bool pressA = OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch);
-
-        Vector2 rightInput = OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick);
-
-        SendVrInput(leftInput, rightInput, pressA);
-
-        // 実際の移動処理は一旦無視したいなら、ここでは position をいじらない
-        // （今は「サーバーに入力が飛べば勝ち」だから）
-    }
-
-    // ===== 入力送信用メソッド =====
-
-    private async void SendVrInput(Vector2 leftStick, Vector2 rightStick, bool pressA)
-    {
-        if (socket == null || socket.State != WebSocketState.Open)
-        {
-            // まだ接続されていない/切れている場合は何もしない
-            return;
-        }
-
-        var payload = new InputMessage
-        {
-            clientId = clientId,
-            data = new InputPayloadData
-            {
-                stickLeftX = leftStick.x,
-                stickLeftY = leftStick.y,
-                stickRightX = rightStick.x,
-                stickRightY = rightStick.y,
-                pressA = pressA,
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            }
-        };
-
-        string json = JsonUtility.ToJson(payload);
-
         try
         {
-            await socket.SendText(json);
-            // Debug.Log("[WS] Sent: " + json);
+            if (socket != null && socket.State == WebSocketState.Open)
+            {
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Quit", cts.Token);
+            }
         }
         catch (Exception e)
         {
-            Debug.LogError("[WS] Send Exception: " + e);
+            Debug.LogError("[WS-PC] Close Exception: " + e);
         }
-    }
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        // 今回は無視でOK（ローカルでボール動かさないなら）
+        finally
+        {
+            cts.Cancel();
+            socket?.Dispose();
+        }
     }
 }
