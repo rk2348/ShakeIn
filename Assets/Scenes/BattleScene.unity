@@ -4491,11 +4491,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   serverUrl: wss://b400-202-13-170-200.ngrok-free.app
-  clientId: vr-1
-  launchPower: 10
-  friction: 0.98
-  stopThreshold: 0.01
-  normalMoveSpeed: 2
+  clientId: sim-1
+  ball1: {fileID: 528028158}
+  ball2: {fileID: 903647538}
+  sendInterval: 0
 --- !u!114 &9131936712141835191
 MonoBehaviour:
   m_ObjectHideFlags: 0
