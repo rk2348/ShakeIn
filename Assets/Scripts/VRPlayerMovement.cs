@@ -1,9 +1,9 @@
-// VRPlayerMovement.cs
+// VRPlayerMovement.cs（Quest側・pressA のフレームだけ送信）
 using System;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Net.WebSockets;  // ★ 追加
+using System.Net.WebSockets;
 using UnityEngine;
 using Fusion;
 
@@ -13,7 +13,6 @@ public class VRPlayerMovement : NetworkBehaviour
     [SerializeField] private string serverUrl = "wss://b400-202-13-170-200.ngrok-free.app";
     [SerializeField] private string clientId = "vr-1";
 
-    // .NET 標準の WebSocket クライアント
     private ClientWebSocket socket;
     private CancellationTokenSource cts = new CancellationTokenSource();
 
@@ -36,8 +35,14 @@ public class VRPlayerMovement : NetworkBehaviour
         public float stickLeftY;
         public float stickRightX;
         public float stickRightY;
-        public bool pressA;
-        public long timestamp;
+        public bool  pressA;
+        public float forwardX;
+        public float forwardZ;
+        public float rightX;
+        public float rightZ;
+        public float launchDirX;
+        public float launchDirZ;
+        public long  timestamp;
     }
 
     [Serializable]
@@ -57,7 +62,6 @@ public class VRPlayerMovement : NetworkBehaviour
 
         try
         {
-            // ws:// を Uri に変換
             var uri = new Uri(serverUrl);
             Debug.Log("[WS] Connecting to " + uri);
             await socket.ConnectAsync(uri, cts.Token);
@@ -98,7 +102,7 @@ public class VRPlayerMovement : NetworkBehaviour
             var rig = FindObjectOfType<OVRCameraRig>();
             if (rig != null)
             {
-                cameraRigRoot = rig.transform;
+                cameraRigRoot   = rig.transform;
                 centerEyeAnchor = rig.centerEyeAnchor;
                 Debug.Log("OVRCameraRig を発見、入力送信モード開始");
             }
@@ -116,20 +120,68 @@ public class VRPlayerMovement : NetworkBehaviour
             return;
         }
 
-        Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
-        bool pressA = OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch);
+        // 1. 慣性移動（ローカル）
+        if (currentVelocity.magnitude > stopThreshold)
+        {
+            cameraRigRoot.position += currentVelocity * Runner.DeltaTime;
+            currentVelocity *= friction;
+        }
+        else
+        {
+            currentVelocity = Vector3.zero;
+        }
+
+        // 2. 向きベクトル
+        Vector3 forward = centerEyeAnchor.forward;
+        Vector3 right   = centerEyeAnchor.right;
+        forward.y = 0f;
+        right.y   = 0f;
+        forward.Normalize();
+        right.Normalize();
+
+        // 3. 入力取得
+        Vector2 leftInput  = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
         Vector2 rightInput = OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick);
+        bool pressA        = OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch);
 
-        SendVrInput(leftInput, rightInput, pressA);
+        // 4. ショット方向
+        Vector3 launchDir = Vector3.zero;
+        if (leftInput.magnitude > 0.1f)
+        {
+            launchDir = (forward * leftInput.y + right * leftInput.x).normalized;
+        }
 
-        // 今は「入力だけ送る」フェーズなので、移動処理はオフにしていてOK
+        // ローカルでも今まで通り動かすなら
+        if (leftInput.magnitude > 0.1f && pressA)
+        {
+            currentVelocity = launchDir * launchPower;
+            Debug.Log($"[VR] Shot local dir:{launchDir} power:{launchPower}");
+        }
+
+        if (rightInput.magnitude > 0.1f)
+        {
+            Vector3 moveDirection = (forward * rightInput.y + right * rightInput.x);
+            cameraRigRoot.position += moveDirection * normalMoveSpeed * Runner.DeltaTime;
+        }
+
+        // 5. ★ pressA が true のフレームだけ送信 ★
+        if (pressA)
+        {
+            SendVrInput(leftInput, rightInput, pressA, forward, right, launchDir);
+        }
     }
 
     // ===== 入力送信用 =====
 
-    private async void SendVrInput(Vector2 leftStick, Vector2 rightStick, bool pressA)
+    private async void SendVrInput(
+        Vector2 leftStick,
+        Vector2 rightStick,
+        bool pressA,
+        Vector3 forward,
+        Vector3 right,
+        Vector3 launchDir
+    )
     {
-        // WebSocket が開いていなければ送らない
         if (socket == null || socket.State != WebSocketState.Open)
         {
             return;
@@ -140,18 +192,24 @@ public class VRPlayerMovement : NetworkBehaviour
             clientId = clientId,
             data = new InputPayloadData
             {
-                stickLeftX = leftStick.x,
-                stickLeftY = leftStick.y,
+                stickLeftX  = leftStick.x,
+                stickLeftY  = leftStick.y,
                 stickRightX = rightStick.x,
                 stickRightY = rightStick.y,
-                pressA = pressA,
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                pressA      = pressA,
+                forwardX    = forward.x,
+                forwardZ    = forward.z,
+                rightX      = right.x,
+                rightZ      = right.z,
+                launchDirX  = launchDir.x,
+                launchDirZ  = launchDir.z,
+                timestamp   = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             }
         };
 
-        string json = JsonUtility.ToJson(payload);
+        string json  = JsonUtility.ToJson(payload);
         byte[] bytes = Encoding.UTF8.GetBytes(json);
-        var segment = new ArraySegment<byte>(bytes);
+        var segment  = new ArraySegment<byte>(bytes);
 
         try
         {
@@ -166,6 +224,6 @@ public class VRPlayerMovement : NetworkBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
-        // 今回は無視でOK
+        // サーバー経由の実験中はローカル衝突は無視でもOK
     }
 }
