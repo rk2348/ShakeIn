@@ -4,18 +4,15 @@ using System.Collections.Generic;
 
 public class BilliardTableManager : NetworkBehaviour
 {
+    // 全ボールを管理するリスト
     private List<BilliardBall> allBalls = new List<BilliardBall>();
 
     public static BilliardTableManager Instance { get; private set; }
-
-    [Networked, Capacity(4)] private NetworkDictionary<PlayerRef, int> PlayerScores => default;
 
     public override void Spawned()
     {
         Instance = this;
     }
-
-    // ★ Updateメソッド（Sキーのテスト）は削除しました ★
 
     public void RegisterBall(BilliardBall ball)
     {
@@ -29,39 +26,24 @@ public class BilliardTableManager : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
+        // リスト内のボール同士の衝突判定を回す
         for (int i = 0; i < allBalls.Count; i++)
         {
+            // ボールが無効ならスキップ
             if (allBalls[i] == null || !allBalls[i].Object.IsValid) continue;
+
+            // 【重要】
+            // 自分が権限を持っているボールについてのみ、衝突判定を行う。
+            // これにより、全プレイヤーが同じ計算を重複して行い、挙動がおかしくなるのを防ぐ。
+            if (!allBalls[i].Object.HasStateAuthority) continue;
 
             for (int j = i + 1; j < allBalls.Count; j++)
             {
                 if (allBalls[j] == null || !allBalls[j].Object.IsValid) continue;
+
+                // 衝突解決処理の呼び出し
                 allBalls[i].ResolveBallCollision(allBalls[j]);
             }
         }
-    }
-
-    public void AddScore(PlayerRef player, int points)
-    {
-        if (player != PlayerRef.None)
-        {
-            int current = 0;
-            if (PlayerScores.ContainsKey(player))
-            {
-                current = PlayerScores.Get(player);
-            }
-
-            PlayerScores.Set(player, current + points);
-            Debug.Log($"Player {player.PlayerId} Score: {current + points}");
-        }
-    }
-
-    public int GetScore(PlayerRef player)
-    {
-        if (PlayerScores.ContainsKey(player))
-        {
-            return PlayerScores.Get(player);
-        }
-        return 0;
     }
 }

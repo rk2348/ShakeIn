@@ -8,6 +8,10 @@ public class VRPlayerMovement : NetworkBehaviour
     [SerializeField] private float friction = 0.98f;
     [SerializeField] private float stopThreshold = 0.01f;
 
+    // 【追加】衝突時の速度維持率（0.0 = 完全停止, 1.0 = 減速なし）
+    // 「少しだけ動きを停止（減速）」させたい場合は 0.2 ～ 0.5 程度に設定してみてください。
+    [SerializeField][Range(0f, 1f)] private float collisionSpeedRetention = 0.2f;
+
     [Header("右手: 通常移動設定")]
     [SerializeField] private float normalMoveSpeed = 2.0f;
 
@@ -42,7 +46,7 @@ public class VRPlayerMovement : NetworkBehaviour
         // 権限がない、または初期化前なら何もしない
         if (!HasStateAuthority || cameraRigRoot == null) return;
 
-        // 左スティック入力チェック (入力値の保持のため、ここでも取得しても良いが、GetDown判定が重要)
+        // 左スティック入力チェック
         Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
 
         // 「スティックが倒されている」かつ「Aボタンが押された」瞬間を検知
@@ -79,13 +83,11 @@ public class VRPlayerMovement : NetworkBehaviour
         right.Normalize();
 
         // --- ビリヤード移動（発射）処理 ---
-        // 【修正】Updateで立てたフラグをここでチェックして消費する
         if (isLaunchRequested)
         {
             Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
 
-            // フラグが立っていても、処理の瞬間にスティックが戻っている可能性を考慮して再度チェック
-            // (もしくは、Update時点の input を保存しておくアプローチもありですが、簡易的にはこれでOK)
+            // フラグが立っていても、処理の瞬間にスティックが戻っている可能性を考慮
             if (leftInput.magnitude > 0.1f)
             {
                 Vector3 launchDir = (forward * leftInput.y + right * leftInput.x).normalized;
@@ -113,22 +115,23 @@ public class VRPlayerMovement : NetworkBehaviour
         var ball = collision.gameObject.GetComponent<BilliardBall>();
         if (ball != null)
         {
-            if (!ball.Object.HasStateAuthority)
-            {
-                ball.Object.RequestStateAuthority();
-            }
-
-            ball.LastHitter = Object.InputAuthority;
-
+            // 衝突方向とパワーを計算
             Vector3 dir = (ball.transform.position - transform.position).normalized;
             dir.y = 0;
-
             float power = Mathf.Max(currentVelocity.magnitude, 1.0f);
 
-            ball.Velocity = dir * power * 1.2f;
+            // 新しい速度ベクトルを作成
+            Vector3 newVelocity = dir * power * 1.2f;
 
-            currentVelocity = Vector3.zero;
-            Debug.Log($"【衝突】ボール ({collision.gameObject.name}) に当たり、弾きました。");
+            // ボール側の OnHit を呼んで処理を委譲
+            ball.OnHit(newVelocity, Runner.LocalPlayer);
+
+            // 【修正】自分の反動処理
+            // 以前: currentVelocity = Vector3.zero; (完全停止)
+            // 修正: 設定された割合だけ速度を残す（減速して少し動く）
+            currentVelocity *= collisionSpeedRetention;
+
+            Debug.Log($"【衝突】ボールに衝突。速度維持率: {collisionSpeedRetention}, 残り速度: {currentVelocity.magnitude}");
         }
         else if (collision.gameObject.CompareTag("Wall"))
         {
