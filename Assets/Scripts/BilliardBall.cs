@@ -3,6 +3,7 @@ using Fusion;
 
 public class BilliardBall : NetworkBehaviour
 {
+    // 最後にこのボールに影響を与えたプレイヤーを同期変数として保持
     [Networked] public Vector3 Velocity { get; set; }
     [Networked] public PlayerRef LastHitter { get; set; }
 
@@ -76,6 +77,18 @@ public class BilliardBall : NetworkBehaviour
         // ボール同士の重なりチェック
         if (distance < minDistance)
         {
+            // ▼▼▼ LastHitterの伝播処理 (ここが追加箇所) ▼▼▼
+            // 玉突きが発生した際、打った人の情報を伝播させる
+            if (this.LastHitter != PlayerRef.None)
+            {
+                other.LastHitter = this.LastHitter;
+            }
+            else if (other.LastHitter != PlayerRef.None)
+            {
+                this.LastHitter = other.LastHitter;
+            }
+            // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
             Vector3 normal = delta.normalized;
             if (distance == 0) normal = Vector3.forward;
 
@@ -87,7 +100,7 @@ public class BilliardBall : NetworkBehaviour
             Vector3 relativeVelocity = this.Velocity - other.Velocity;
             float velocityAlongNormal = Vector3.Dot(relativeVelocity, normal);
 
-            // 近づき合っている場合のみ衝突処理
+            // 近づき合っている場合のみ物理衝突計算を行う
             if (velocityAlongNormal < 0)
             {
                 // 物理挙動の計算
