@@ -1,4 +1,4 @@
-// VRPlayerMovement.cs（PC側用・入力受信＆球操作）
+// VRPlayerMovement_PC.cs
 using System;
 using System.Text;
 using System.Threading;
@@ -6,23 +6,42 @@ using System.Threading.Tasks;
 using System.Net.WebSockets;
 using UnityEngine;
 
-public class VRPlayerMovement : MonoBehaviour
+/// <summary>
+/// PC側用:
+/// - WebSocket で Quest から入力を受信
+/// - 元のビリヤード風VRPlayerMovementのロジックでカメラリグ（またはプレイヤーのTransform）を動かす
+/// - Rigidbody は使わず、currentVelocity と transform.position で物理挙動を再現
+/// </summary>
+public class VRPlayerMovement_PC : MonoBehaviour
 {
     [Header("WebSocket設定")]
     [SerializeField] private string serverUrl = "wss://b400-202-13-170-200.ngrok-free.app";
-    [SerializeField] private string clientId = "sim-1"; // PC側はシミュレータなので別IDにしておく
+    [SerializeField] private string clientId = "sim-1";
 
     private ClientWebSocket socket;
     private CancellationTokenSource cts = new CancellationTokenSource();
 
-    [Header("操作対象のボール")]
-    [SerializeField] private Rigidbody ballRigidbody; // 動かしたい球の Rigidbody をここにアサイン
+    [Header("ビリヤード: ショット設定")]
+    [SerializeField] private float launchPower = 10.0f;
+    [SerializeField] private float friction = 0.98f;
+    [SerializeField] private float stopThreshold = 0.01f;
 
-    [Header("移動パラメータ")]
-    [SerializeField] private float moveForce = 5.0f;   // 左スティックで加える力
-    [SerializeField] private float dashForce = 10.0f;  // Aボタンでのショットの力
+    [Header("通常: スティック移動設定")]
+    [SerializeField] private float normalMoveSpeed = 2.0f;
 
-    // ===== 受信した入力を保持する構造体 =====
+    [Header("移動対象（カメラリグ相当）")]
+    [SerializeField] private Transform cameraRigRoot;    // 動かしたいプレイヤーのルート
+    [SerializeField] private Transform centerEyeAnchor;  // 向きの基準になるTransform（なければ cameraRigRoot.forward を使う）
+
+    // 慣性移動用ベクトル
+    private Vector3 currentVelocity;
+
+    // WebSocket から受け取った最新入力（スレッドセーフを強く気にしない簡易版）
+    private Vector2 latestLeftInput = Vector2.zero;
+    private Vector2 latestRightInput = Vector2.zero;
+    private bool latestPressA = false;
+
+    #region JSON定義
 
     [Serializable]
     private class InputPayloadData
@@ -44,14 +63,19 @@ public class VRPlayerMovement : MonoBehaviour
         public InputPayloadData data;
     }
 
-    private Vector2 latestLeftInput = Vector2.zero;
-    private bool latestPressA = false;
+    #endregion
 
     private void Awake()
     {
-        if (ballRigidbody == null)
+        if (cameraRigRoot == null)
         {
-            ballRigidbody = GetComponent<Rigidbody>();
+            cameraRigRoot = this.transform;
+        }
+
+        // centerEyeAnchor が未指定なら cameraRigRoot を向きの基準にする
+        if (centerEyeAnchor == null)
+        {
+            centerEyeAnchor = cameraRigRoot;
         }
 
         socket = new ClientWebSocket();
@@ -67,7 +91,6 @@ public class VRPlayerMovement : MonoBehaviour
             await socket.ConnectAsync(uri, cts.Token);
             Debug.Log("[WS-PC] Connected: " + socket.State);
 
-            // 接続できたら受信ループ開始
             _ = ReceiveLoop();
         }
         catch (Exception e)
@@ -85,8 +108,7 @@ public class VRPlayerMovement : MonoBehaviour
             try
             {
                 var segment = new ArraySegment<byte>(buffer);
-                WebSocketReceiveResult result =
-                    await socket.ReceiveAsync(segment, cts.Token);
+                WebSocketReceiveResult result = await socket.ReceiveAsync(segment, cts.Token);
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
@@ -109,8 +131,6 @@ public class VRPlayerMovement : MonoBehaviour
                 }
 
                 string json = Encoding.UTF8.GetString(buffer, 0, count);
-                // Debug.Log("[WS-PC] Received: " + json);
-
                 HandleInputJson(json);
             }
             catch (Exception e)
@@ -123,21 +143,22 @@ public class VRPlayerMovement : MonoBehaviour
 
     private void HandleInputJson(string json)
     {
-        Debug.Log("[WS-PC] Raw json: " + json); // ★ これ追加
+        // Debug.Log("[WS-PC] Raw json: " + json);
 
         try
         {
             var msg = JsonUtility.FromJson<InputMessage>(json);
             if (msg == null || msg.type != "input" || msg.data == null)
             {
-                Debug.LogWarning("[WS-PC] Unknown or invalid message");
+                // Debug.LogWarning("[WS-PC] Unknown or invalid message");
                 return;
             }
 
             latestLeftInput = new Vector2(msg.data.stickLeftX, msg.data.stickLeftY);
+            latestRightInput = new Vector2(msg.data.stickRightX, msg.data.stickRightY);
             latestPressA = msg.data.pressA;
 
-            Debug.Log($"[WS-PC] Parsed input: L({latestLeftInput.x}, {latestLeftInput.y}) A={latestPressA}");
+            // Debug.Log($"[WS-PC] Parsed input: L({latestLeftInput.x}, {latestLeftInput.y}) A={latestPressA}");
         }
         catch (Exception e)
         {
@@ -145,25 +166,55 @@ public class VRPlayerMovement : MonoBehaviour
         }
     }
 
-
     private void FixedUpdate()
     {
-        if (ballRigidbody == null)
+        if (cameraRigRoot == null || centerEyeAnchor == null)
         {
-            Debug.LogWarning("[WS-PC] ballRigidbody is null");
             return;
         }
 
-        // デバッグ用: Aボタン押したら絶対に上にジャンプ
-        if (latestPressA)
+        // ===== 1. 既存ロジックと同じ「慣性移動」 =====
+        if (currentVelocity.magnitude > stopThreshold)
         {
-            Debug.Log("[WS-PC] Dash TEST: Upward jump");
-            ballRigidbody.AddForce(Vector3.up * 10f, ForceMode.VelocityChange);
-            latestPressA = false;
+            cameraRigRoot.position += currentVelocity * Time.fixedDeltaTime;
+            currentVelocity *= friction;
+        }
+        else
+        {
+            currentVelocity = Vector3.zero;
+        }
+
+        // ===== 2. 向きベクトル（centerEyeAnchor 基準） =====
+        Vector3 forward = centerEyeAnchor.forward;
+        Vector3 right = centerEyeAnchor.right;
+        forward.y = 0f;
+        right.y = 0f;
+        forward.Normalize();
+        right.Normalize();
+
+        // WebSocketからの入力をここで使用
+        Vector2 leftInput = latestLeftInput;
+        Vector2 rightInput = latestRightInput;
+        bool pressA = latestPressA;
+
+        // Aボタンは1回だけ消費
+        latestPressA = false;
+
+        // ===== 3. ビリヤード風ショット（左スティック + Aボタン） =====
+        if (leftInput.magnitude > 0.1f && pressA)
+        {
+            Vector3 launchDir = (forward * leftInput.y + right * leftInput.x).normalized;
+            currentVelocity = launchDir * launchPower;
+            Debug.Log($"[WS-PC] Shot! dir:{launchDir} power:{launchPower}");
+        }
+
+        // ===== 4. 通常移動（右スティック） =====
+        if (rightInput.magnitude > 0.1f)
+        {
+            Vector3 moveDirection = (forward * rightInput.y + right * rightInput.x);
+            cameraRigRoot.position += moveDirection * normalMoveSpeed * Time.fixedDeltaTime;
         }
     }
-
-
 
     private async void OnApplicationQuit()
     {
@@ -184,4 +235,8 @@ public class VRPlayerMovement : MonoBehaviour
             socket?.Dispose();
         }
     }
+
+    // ★ OnCollisionEnter 部分は、PC側の「プレイヤー」が物理衝突を受ける形で使っていたなら、
+    //   そのままコピペして、BilliardBall 側の実装と組み合わせればOK。
+    //   （サーバー経由に変えても、そのロジック自体はほぼそのまま使える）
 }
