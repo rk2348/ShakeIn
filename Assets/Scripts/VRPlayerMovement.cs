@@ -4,84 +4,63 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.WebSockets;
 using UnityEngine;
-using Fusion;
+// using Fusion; // Fusionは一旦外す
 
-public class VRPlayerMovement : NetworkBehaviour
+// NetworkBehaviour ではなく MonoBehaviour にする
+public class VRPlayerMovement : MonoBehaviour
 {
     [Header("WebSocket設定")]
     [SerializeField] private string serverUrl = "wss://b400-202-13-170-200.ngrok-free.app";
     [SerializeField] private string clientId = "vr-1";
 
-    [Header("同期対象 (自分以外のボールも動かすため)")]
-    [SerializeField] private Transform ball1; // インスペクタで球1をセット
-    [SerializeField] private Transform ball2; // インスペクタで球2をセット
-
-    [Header("入力送信設定")]
-    [SerializeField] private float sendInterval = 0.0f; // 0なら毎フレーム送信チェック
+    [Header("同期対象")]
+    [SerializeField] private Transform ball1;
+    [SerializeField] private Transform ball2;
 
     private ClientWebSocket socket;
     private CancellationTokenSource cts = new CancellationTokenSource();
+    
+    // OVRCameraRig自身につけるなら、cameraRigRoot は transform (自分自身) でOK
     private Transform cameraRigRoot;
     private Transform centerEyeAnchor;
 
-    // ==== 受信するデータ構造 (PC側と合わせる) ====
-    [Serializable]
-    private class ObjectState
-    {
-        public float posX, posY, posZ;
-        public float rotX, rotY, rotZ, rotW;
-    }
+    // ==== データ構造 (変更なし) ====
+    [Serializable] private class ObjectState { public float posX, posY, posZ; public float rotX, rotY, rotZ, rotW; }
+    [Serializable] private class WorldStatePayload { public ObjectState player; public ObjectState ball1; public ObjectState ball2; public long timestamp; }
+    [Serializable] private class ServerMessage { public string type; public string clientId; public WorldStatePayload data; }
+    [Serializable] private class InputPayloadData { public float stickLeftX, stickLeftY; public float stickRightX, stickRightY; public bool pressA; public float forwardX, forwardZ; public float rightX, rightZ; public float launchDirX, launchDirZ; public long timestamp; }
+    [Serializable] private class InputMessage { public string type = "input"; public string clientId; public string role = "vr"; public InputPayloadData data; }
 
-    [Serializable]
-    private class WorldStatePayload
-    {
-        public ObjectState player;
-        public ObjectState ball1;
-        public ObjectState ball2;
-        public long timestamp;
-    }
-
-    [Serializable]
-    private class ServerMessage
-    {
-        public string type; // "state" or "input"
-        public string clientId;
-        public WorldStatePayload data; // type="state" の場合の中身
-    }
-
-    // 最新の受信データ
+    // 最新データ保持用
     private Vector3? targetPosPlayer, targetPosB1, targetPosB2;
     private Quaternion? targetRotPlayer, targetRotB1, targetRotB2;
 
-    // ==== 送信するデータ構造 ====
-    [Serializable]
-    private class InputPayloadData
+    private async void Start()
     {
-        public float stickLeftX, stickLeftY;
-        public float stickRightX, stickRightY;
-        public bool  pressA;
-        public float forwardX, forwardZ;
-        public float rightX, rightZ;
-        public float launchDirX, launchDirZ;
-        public long  timestamp;
-    }
+        // OVRCameraRigのセットアップ
+        // このスクリプトが OVRCameraRig についているなら、自分自身を取得
+        var rig = GetComponent<OVRCameraRig>();
+        if (rig != null)
+        {
+            cameraRigRoot = rig.transform;
+            centerEyeAnchor = rig.centerEyeAnchor;
+        }
+        else
+        {
+            // もしOVRCameraRigの子オブジェクト等につけている場合への保険
+            rig = FindObjectOfType<OVRCameraRig>();
+            if (rig != null)
+            {
+                cameraRigRoot = rig.transform;
+                centerEyeAnchor = rig.centerEyeAnchor;
+            }
+        }
 
-    [Serializable]
-    private class InputMessage
-    {
-        public string type = "input";
-        public string clientId;
-        public string role = "vr";
-        public InputPayloadData data;
-    }
-
-    private void Awake()
-    {
         socket = new ClientWebSocket();
-        ConnectAndStart();
+        await ConnectAndStart();
     }
 
-    private async void ConnectAndStart()
+    private async Task ConnectAndStart()
     {
         try
         {
@@ -89,8 +68,7 @@ public class VRPlayerMovement : NetworkBehaviour
             Debug.Log("[WS-VR] Connecting...");
             await socket.ConnectAsync(uri, cts.Token);
             Debug.Log("[WS-VR] Connected");
-
-            _ = ReceiveLoop(); // 受信ループ開始
+            _ = ReceiveLoop();
         }
         catch (Exception e)
         {
@@ -98,7 +76,6 @@ public class VRPlayerMovement : NetworkBehaviour
         }
     }
 
-    // ★ サーバーからの座標を受信するループ
     private async Task ReceiveLoop()
     {
         var buffer = new byte[4096];
@@ -108,19 +85,20 @@ public class VRPlayerMovement : NetworkBehaviour
             {
                 var segment = new ArraySegment<byte>(buffer);
                 var result = await socket.ReceiveAsync(segment, cts.Token);
-                
                 if (result.MessageType == WebSocketMessageType.Close) break;
 
                 int count = result.Count;
                 while (!result.EndOfMessage)
                 {
-                    if (count >= buffer.Length) break; 
+                    if (count >= buffer.Length) break;
                     segment = new ArraySegment<byte>(buffer, count, buffer.Length - count);
                     result = await socket.ReceiveAsync(segment, cts.Token);
                     count += result.Count;
                 }
 
                 string json = Encoding.UTF8.GetString(buffer, 0, count);
+                // Unityメインスレッド以外でJSONパースや代入をするとエラーになることがあるため、
+                // 本来はContext同期が必要だが、JsonUtilityはスレッドセーフな場合が多いので一旦このまま
                 HandleServerMessage(json);
             }
             catch (Exception) { break; }
@@ -131,15 +109,11 @@ public class VRPlayerMovement : NetworkBehaviour
     {
         try
         {
-            // まずタイプを確認
             var msg = JsonUtility.FromJson<ServerMessage>(json);
-            
-            // PCから送られてくる "state" メッセージのみ処理する
             if (msg != null && msg.type == "state" && msg.data != null)
             {
-                // データを取り出してメインスレッド反映用の変数に入れる
                 var d = msg.data;
-                
+                // 値の更新
                 targetPosPlayer = new Vector3(d.player.posX, d.player.posY, d.player.posZ);
                 targetRotPlayer = new Quaternion(d.player.rotX, d.player.rotY, d.player.rotZ, d.player.rotW);
 
@@ -150,60 +124,32 @@ public class VRPlayerMovement : NetworkBehaviour
                 targetRotB2 = new Quaternion(d.ball2.rotX, d.ball2.rotY, d.ball2.rotZ, d.ball2.rotW);
             }
         }
-        catch (Exception e)
-        {
-            Debug.LogError("JSON Parse Error: " + e);
-        }
+        catch { }
     }
 
-    public override void Spawned()
+    // FixedUpdateNetwork ではなく通常の Update を使用
+    private void Update()
     {
-        if (HasStateAuthority)
-        {
-            var rig = FindObjectOfType<OVRCameraRig>();
-            if (rig != null)
-            {
-                cameraRigRoot   = rig.transform;
-                centerEyeAnchor = rig.centerEyeAnchor;
-            }
-        }
-    }
+        if (cameraRigRoot == null || centerEyeAnchor == null) return;
 
-    public override void FixedUpdateNetwork()
-    {
-        if (!HasStateAuthority || cameraRigRoot == null || centerEyeAnchor == null) return;
-
-        // ===============================================
-        // 1. 受信した座標を反映 (ローカル計算は廃止)
-        // ===============================================
-        
-        // 自分の位置 (Player)
+        // 1. 座標反映 (Lerpでなめらかに)
         if (targetPosPlayer.HasValue)
-        {
-            // 素早く同期させるため Lerp でなめらかに動かす (t=0.5f くらいで強めに補間)
-            // ※完全にカチッと合わせたい場合は Lerp をやめて直接代入してください
             cameraRigRoot.position = Vector3.Lerp(cameraRigRoot.position, targetPosPlayer.Value, 0.5f);
-            // 回転はHMDの自由度を奪うので同期しないのが一般的ですが、必要ならここで行います
-        }
+            // ※VR酔いを防ぐため、プレイヤーの回転(Rotation)は同期せず、HMDの自由な動きに任せるのが一般的です
 
-        // 球1
         if (ball1 != null && targetPosB1.HasValue)
         {
             ball1.position = Vector3.Lerp(ball1.position, targetPosB1.Value, 0.5f);
             ball1.rotation = Quaternion.Lerp(ball1.rotation, targetRotB1.Value, 0.5f);
         }
 
-        // 球2
         if (ball2 != null && targetPosB2.HasValue)
         {
             ball2.position = Vector3.Lerp(ball2.position, targetPosB2.Value, 0.5f);
             ball2.rotation = Quaternion.Lerp(ball2.rotation, targetRotB2.Value, 0.5f);
         }
 
-        // ===============================================
-        // 2. 入力を送信 (操作のみ送る)
-        // ===============================================
-        
+        // 2. 入力送信
         Vector3 forward = centerEyeAnchor.forward;
         Vector3 right   = centerEyeAnchor.right;
         forward.y = 0f; right.y = 0f;
@@ -219,7 +165,6 @@ public class VRPlayerMovement : NetworkBehaviour
             launchDir = (forward * leftInput.y + right * leftInput.x).normalized;
         }
 
-        // Aボタンを押したときだけ送信
         if (pressA)
         {
             SendVrInput(leftInput, rightInput, pressA, forward, right, launchDir);
