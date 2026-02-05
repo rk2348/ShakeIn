@@ -1087,6 +1087,56 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &846094585
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 846094587}
+  - component: {fileID: 846094586}
+  m_Layer: 0
+  m_Name: NetworkManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &846094586
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 846094585}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90702105cb10746e2a1ea2185b6f53f3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serverUrl: wss://b400-202-13-170-200.ngrok-free.app
+  clientId: pc-sender
+  sendInterval: 0.033
+  selfTransform: {fileID: 9131936712142229808}
+  ball1: {fileID: 528028158}
+  ball2: {fileID: 903647538}
+--- !u!4 &846094587
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 846094585}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.8, z: 5.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &899497018
 GameObject:
   m_ObjectHideFlags: 0
@@ -4490,10 +4540,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da9b764480d0d62419187477dcececdd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  serverUrl: wss://b400-202-13-170-200.ngrok-free.app
+  clientId: sim-1
   launchPower: 10
   friction: 0.98
   stopThreshold: 0.01
   normalMoveSpeed: 2
+  cameraRigRoot: {fileID: 0}
+  centerEyeAnchor: {fileID: 0}
 --- !u!114 &9131936712141835191
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4511,7 +4565,6 @@ MonoBehaviour:
   Flags: 262145
   NestedObjects: []
   NetworkedBehaviours:
-  - {fileID: 9131936712141835190}
   - {fileID: 9164148879991304113}
   ForceRemoteRenderTimeframe: 0
 --- !u!1 &9131936712141933840
@@ -4998,3 +5051,4 @@ SceneRoots:
   - {fileID: 937111220}
   - {fileID: 1912901282}
   - {fileID: 626475151}
+  - {fileID: 846094587}
