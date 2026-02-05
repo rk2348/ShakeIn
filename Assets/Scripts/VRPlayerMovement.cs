@@ -96,6 +96,9 @@ public class VRPlayerMovement : NetworkBehaviour
                 ball.Object.RequestStateAuthority();
             }
 
+            // 【追加】ぶつかったプレイヤーを記録 (InputAuthority = このPCの操作プレイヤー)
+            ball.LastHitter = Object.InputAuthority;
+
             Vector3 dir = (ball.transform.position - transform.position).normalized;
             dir.y = 0;
 

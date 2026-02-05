@@ -4,6 +4,7 @@ using Fusion;
 public class BilliardBall : NetworkBehaviour
 {
     [Networked] public Vector3 Velocity { get; set; } //ネットワーク同期される速度
+    [Networked] public PlayerRef LastHitter { get; set; } //【追加】最後に触れたプレイヤー
 
     [Header("物理設定")]
     [SerializeField] public float radius = 0.03f;     //ボールの半径
@@ -66,7 +67,7 @@ public class BilliardBall : NetworkBehaviour
                 //壁の法線を使って反射ベクトル計算
                 Vector3 reflectDir = Vector3.Reflect(Velocity, hit.normal);
 
-                //反発係数を適用して速度を更新
+                //反発係数を適用して速度を毎フレーム更新
                 Velocity = reflectDir * bounciness;
             }
         }

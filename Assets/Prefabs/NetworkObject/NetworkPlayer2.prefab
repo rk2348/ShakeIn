@@ -110,8 +110,7 @@ MonoBehaviour:
   friction: 0.985
   stopThreshold: 0.01
   bounciness: 0.8
-  tableWidth: 11.5
-  tableLength: 22.5
+  wallTag: Wall
 --- !u!1 &6692798332582441965
 GameObject:
   m_ObjectHideFlags: 0
@@ -318,5 +317,4 @@ MonoBehaviour:
   friction: 0.985
   stopThreshold: 0.01
   bounciness: 0.8
-  tableWidth: 1
-  tableLength: 2
+  wallTag: Wall
