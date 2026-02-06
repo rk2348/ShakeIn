@@ -2864,7 +2864,6 @@ MonoBehaviour:
   serverUrl: wss://b400-202-13-170-200.ngrok-free.app
   clientId: vr-1
   syncBalls:
-  - {fileID: 9131936712142229808}
   - {fileID: 1685824983}
   - {fileID: 2074102284}
   - {fileID: 2138007258}
