@@ -3,18 +3,11 @@ using Fusion;
 
 public class BilliardBall : NetworkBehaviour
 {
-    // --- 追加部分: ボール番号の設定 ---
-    [Header("ボール設定")]
-    [Tooltip("手球は0、的球は1?9等の番号を設定してください")]
-    public int BallNumber = 0;
-    // -------------------------------
-
     [Networked] public Vector3 Velocity { get; set; }
     [Networked] public PlayerRef LastHitter { get; set; }
 
     [Networked] private Vector3 NetworkPosition { get; set; }
 
-    [Header("物理設定")]
     [SerializeField] public float radius = 0.03f;
     [SerializeField] private float friction = 0.985f;
     [SerializeField] private float stopThreshold = 0.01f;
@@ -85,22 +78,16 @@ public class BilliardBall : NetworkBehaviour
         }
     }
 
-    // --- 【追加・修正】ポケット判定をボール側で行う ---
     private void OnTriggerEnter(Collider other)
     {
-        // 自分が権限を持っている場合のみ実行
         if (Object != null && Object.HasStateAuthority)
         {
-            // 触れた相手が「ポケット」コンポーネントを持っているか確認
-            // （またはタグで判定してもOKですが、確実なComponent判定を推奨）
             if (other.GetComponent<BilliardPocket>() != null)
             {
-                Debug.Log($"【BilliardBall】ボール{BallNumber}がポケットに入りました。Despawnします。");
                 Runner.Despawn(Object);
             }
         }
     }
-    // ------------------------------------------------
 
     private void HandleWallCollision()
     {
