@@ -428,7 +428,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &783297059
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -736,7 +736,6 @@ MonoBehaviour:
   - RawGuidValue: cff40dcbbe16ac3439d7ad11bada0999
   targetSceneIndex: 1
   roomNameInputField: {fileID: 1957365524}
-  matchFoundPanel: {fileID: 0}
 --- !u!4 &1110073844
 Transform:
   m_ObjectHideFlags: 0
