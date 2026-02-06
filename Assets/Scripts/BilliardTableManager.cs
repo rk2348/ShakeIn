@@ -24,10 +24,6 @@ public class BilliardTableManager : NetworkBehaviour
         if (allBalls.Contains(ball)) allBalls.Remove(ball);
     }
 
-    /// <summary>
-    /// 現在盤面にある的球（BallNumber > 0）の中で最小の番号を返す。
-    /// 的球がない場合は0を返す。
-    /// </summary>
     public int GetNextTargetBallNumber()
     {
         int minNumber = int.MaxValue;
@@ -35,7 +31,6 @@ public class BilliardTableManager : NetworkBehaviour
 
         foreach (var ball in allBalls)
         {
-            // ボールオブジェクトが有効で、かつ手球(0)ではない場合
             if (ball != null && ball.Object != null && ball.Object.IsValid && ball.BallNumber > 0)
             {
                 if (ball.BallNumber < minNumber)
@@ -46,7 +41,6 @@ public class BilliardTableManager : NetworkBehaviour
             }
         }
 
-        // 見つかった場合はその番号、見つからなければ0（すべて落ちた等）を返す
         return found ? minNumber : 0;
     }
 
