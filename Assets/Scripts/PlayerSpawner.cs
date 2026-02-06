@@ -28,8 +28,11 @@ public class PlayerSpawner : NetworkBehaviour
                 localRightHandAnchor = rig.rightHandAnchor;
             }
 
-            var renderers = networkHead.GetComponentsInChildren<MeshRenderer>();
-            foreach (var r in renderers) r.enabled = false;
+            var renderers = GetComponentsInChildren<Renderer>();
+            foreach (var r in renderers)
+            {
+                r.enabled = false;
+            }
         }
     }
 
