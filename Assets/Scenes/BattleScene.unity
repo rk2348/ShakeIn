@@ -1168,6 +1168,37 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.28409612
   m_Center: {x: -0.00000068545376, y: -4.90613, z: -7.0169773}
+--- !u!1 &1329620399
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1329620400}
+  m_Layer: 0
+  m_Name: NetworkManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1329620400
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1329620399}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.8949296, y: -7.877634, z: 13.34928}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &1433477504
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -3923,11 +3954,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da9b764480d0d62419187477dcececdd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  launchPower: 10
-  friction: 0.98
-  stopThreshold: 0.01
-  collisionSpeedRetention: 0.2
-  normalMoveSpeed: 2
+  serverUrl: wss://b400-202-13-170-200.ngrok-free.app
+  clientId: vr-1
+  sendInterval: 0.033
+  moveThreshold: 0.001
+  angleThreshold: 0.1
+  selfTransform: {fileID: 0}
+  syncBalls: []
 --- !u!114 &9131936712141835191
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3945,7 +3978,6 @@ MonoBehaviour:
   Flags: 262145
   NestedObjects: []
   NetworkedBehaviours:
-  - {fileID: 9131936712141835190}
   - {fileID: 9164148879991304113}
   ForceRemoteRenderTimeframe: 0
 --- !u!1 &9131936712141933840
@@ -4465,3 +4497,4 @@ SceneRoots:
   - {fileID: 2105071008}
   - {fileID: 1579845911}
   - {fileID: 1627659141}
+  - {fileID: 1329620400}
