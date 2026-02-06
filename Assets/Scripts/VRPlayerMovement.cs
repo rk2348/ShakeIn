@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using System.Net.WebSockets;
 using UnityEngine;
 
-[RequireComponent(typeof(Rigidbody))]
 public class VRPlayerMovement : MonoBehaviour
 {
     [Header("WebSocket設定")]
@@ -75,12 +74,12 @@ public class VRPlayerMovement : MonoBehaviour
 
         // 物理挙動用 Rigidbody 設定
         myRigidbody = cameraRigRoot.GetComponent<Rigidbody>();
-        if (myRigidbody == null)
-        {
-            myRigidbody = cameraRigRoot.gameObject.AddComponent<Rigidbody>();
-            myRigidbody.useGravity = false;
-            myRigidbody.isKinematic = true; // プログラム制御のためKinematic
-        }
+        // if (myRigidbody == null)
+        // {
+        //     myRigidbody = cameraRigRoot.gameObject.AddComponent<Rigidbody>();
+        //     myRigidbody.useGravity = false;
+        //     myRigidbody.isKinematic = true; // プログラム制御のためKinematic
+        // }
 
         // ガイド線の初期化
         if (directionLine != null) directionLine.enabled = false;
