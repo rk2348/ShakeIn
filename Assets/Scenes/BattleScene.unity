@@ -270,6 +270,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &220398454 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 151011877404725512, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!114 &231174030
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -956,6 +961,11 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 4
   m_CollisionDetection: 0
+--- !u!4 &920355604 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2687016526421731135, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &937111216
 GameObject:
   m_ObjectHideFlags: 0
@@ -1177,6 +1187,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1329620400}
+  - component: {fileID: 1329620401}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -1199,6 +1210,34 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1329620401
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1329620399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90702105cb10746e2a1ea2185b6f53f3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serverUrl: wss://b400-202-13-170-200.ngrok-free.app
+  clientId: pc-sender
+  sendInterval: 0.033
+  moveThreshold: 0.001
+  angleThreshold: 0.1
+  selfTransform: {fileID: 9131936712142229808}
+  syncBalls:
+  - {fileID: 1685824983}
+  - {fileID: 2074102284}
+  - {fileID: 2138007258}
+  - {fileID: 1651308839}
+  - {fileID: 1793558485}
+  - {fileID: 1850560732}
+  - {fileID: 220398454}
+  - {fileID: 920355604}
+  - {fileID: 1896955161}
 --- !u!54 &1433477504
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -2121,6 +2160,11 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 2822706059538491566, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
   m_PrefabInstance: {fileID: 1651308828}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &1651308839 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -126161316394030982, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!54 &1685824978
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -2224,6 +2268,11 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.28407776
   m_Center: {x: 0.5692553, y: -5.904264, z: -7.016977}
+--- !u!4 &1685824983 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -6519822530903885746, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1687248939
 GameObject:
   m_ObjectHideFlags: 0
@@ -2451,6 +2500,11 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.28408492
   m_Center: {x: 1.1553429, y: -6.9088607, z: -7.016978}
+--- !u!4 &1793558485 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -4700672478986550449, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!54 &1850560727
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -2554,6 +2608,11 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.2839576
   m_Center: {x: -0.87068003, y: -6.403423, z: -7.0169783}
+--- !u!4 &1850560732 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8065422999340844825, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1853427444
 GameObject:
   m_ObjectHideFlags: 0
@@ -2705,6 +2764,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1896955161 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2857995032687941300, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1912901278
 GameObject:
   m_ObjectHideFlags: 0
@@ -3111,6 +3175,11 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.28408873
   m_Center: {x: -0.5774458, y: -6.9088607, z: -7.016978}
+--- !u!4 &2074102284 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 891118346426370311, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2105071002
 GameObject:
   m_ObjectHideFlags: 0
@@ -3429,6 +3498,11 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.28401944
   m_Center: {x: 0.28722852, y: -6.4034233, z: -7.0169783}
+--- !u!4 &2138007258 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1922768988834524001, guid: 2315fc1b0b21a104a97e831918aee348, type: 3}
+  m_PrefabInstance: {fileID: 1651308828}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &114184169096071408
 Transform:
   m_ObjectHideFlags: 0
@@ -3956,11 +4030,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   serverUrl: wss://b400-202-13-170-200.ngrok-free.app
   clientId: vr-1
-  sendInterval: 0.033
-  moveThreshold: 0.001
-  angleThreshold: 0.1
-  selfTransform: {fileID: 0}
-  syncBalls: []
+  launchPower: 10
+  friction: 0.98
+  stopThreshold: 0.01
+  collisionSpeedRetention: 0.2
+  directionLine: {fileID: 0}
+  lineLength: 2
+  normalMoveSpeed: 2
+  cameraRigRoot: {fileID: 0}
+  centerEyeAnchor: {fileID: 0}
 --- !u!114 &9131936712141835191
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3998,6 +4076,7 @@ GameObject:
   - component: {fileID: 9164148879991304115}
   - component: {fileID: 9164148879991304116}
   - component: {fileID: 9164148879991304117}
+  - component: {fileID: 9164148879991304118}
   m_Layer: 0
   m_Name: OVRCameraRig
   m_TagString: Untagged
@@ -4475,6 +4554,33 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   FixedY: -0.8
+--- !u!54 &9164148879991304118
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9131936712141933840}
+  serializedVersion: 4
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
