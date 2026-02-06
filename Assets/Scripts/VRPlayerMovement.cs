@@ -9,11 +9,9 @@ public class VRPlayerMovement : NetworkBehaviour
     [SerializeField] private float stopThreshold = 0.01f;
     [SerializeField][Range(0f, 1f)] private float collisionSpeedRetention = 0.2f;
 
-    // --- 追加: ガイド線用の設定 ---
     [Header("ガイド線設定")]
     [SerializeField] private LineRenderer directionLine; // InspectorでLineRendererをアタッチ
     [SerializeField] private float lineLength = 2.0f;    // 線の長さ
-    // ---------------------------
 
     [Header("右手: 通常移動設定")]
     [SerializeField] private float normalMoveSpeed = 2.0f;
@@ -41,7 +39,6 @@ public class VRPlayerMovement : NetworkBehaviour
             }
         }
 
-        // --- 追加: 初期状態では線を消しておく ---
         if (directionLine != null) directionLine.enabled = false;
     }
 

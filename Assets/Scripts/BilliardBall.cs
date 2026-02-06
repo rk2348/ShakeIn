@@ -3,25 +3,26 @@ using Fusion;
 
 public class BilliardBall : NetworkBehaviour
 {
-    // --- 追加部分: ボール番号の設定 ---
     [Header("ボール設定")]
     [Tooltip("手球は0、的球は1?9等の番号を設定してください")]
     public int BallNumber = 0;
-    // -------------------------------
 
     [Networked] public Vector3 Velocity { get; set; }
     [Networked] public PlayerRef LastHitter { get; set; }
-
     [Networked] private Vector3 NetworkPosition { get; set; }
 
     [Header("物理設定")]
-    [SerializeField] public float radius = 0.03f;
+    private float radius = 0.05f; // 半径を実測値に合わせて調整推奨
     [SerializeField] private float friction = 0.985f;
     [SerializeField] private float stopThreshold = 0.01f;
-    [SerializeField] private float bounciness = 0.8f;
+    [SerializeField] private float bounciness = 0.8f; // 壁反射時の速度維持率
     [SerializeField] private string wallTag = "Wall";
 
     private PlayerRef? _pendingLastHitter = null;
+
+    // 衝突判定用の定数（プレイヤー側と共有）
+    private const float CollisionSpeedRetention = 0.2f;
+    private const float PowerMultiplier = 1.2f;
 
     public override void Spawned()
     {
@@ -85,14 +86,10 @@ public class BilliardBall : NetworkBehaviour
         }
     }
 
-    // --- 【追加・修正】ポケット判定をボール側で行う ---
     private void OnTriggerEnter(Collider other)
     {
-        // 自分が権限を持っている場合のみ実行
         if (Object != null && Object.HasStateAuthority)
         {
-            // 触れた相手が「ポケット」コンポーネントを持っているか確認
-            // （またはタグで判定してもOKですが、確実なComponent判定を推奨）
             if (other.GetComponent<BilliardPocket>() != null)
             {
                 Debug.Log($"【BilliardBall】ボール{BallNumber}がポケットに入りました。Despawnします。");
@@ -100,24 +97,29 @@ public class BilliardBall : NetworkBehaviour
             }
         }
     }
-    // ------------------------------------------------
 
     private void HandleWallCollision()
     {
         float moveDistance = Velocity.magnitude * Runner.DeltaTime;
         if (moveDistance <= Mathf.Epsilon) return;
 
-        float margin = radius + 0.05f;
+        float margin = radius + 0.01f;
         Vector3 direction = Velocity.normalized;
-        Vector3 origin = transform.position - (direction * margin);
+        Vector3 origin = transform.position;
         float checkDistance = moveDistance + margin;
 
         if (Physics.SphereCast(origin, radius, direction, out RaycastHit hit, checkDistance))
         {
             if (hit.collider.CompareTag(wallTag))
             {
+                // 反射ベクトル計算（Y軸は固定）
                 Vector3 reflectDir = Vector3.Reflect(Velocity, hit.normal);
+                reflectDir.y = 0;
+
+                // 速度の適用と減衰
                 Velocity = reflectDir * bounciness;
+
+                Debug.Log($"【的球反射】ボール{BallNumber}が壁に衝突。速度維持率: {bounciness}");
             }
         }
     }
@@ -126,58 +128,42 @@ public class BilliardBall : NetworkBehaviour
     {
         if (!Object.IsValid || !other.Object.IsValid) return;
 
-        Vector3 delta = transform.position - other.transform.position;
+        Vector3 delta = other.transform.position - transform.position;
         float distance = delta.magnitude;
         float minDistance = this.radius + other.radius;
 
         if (distance < minDistance)
         {
-            if (!other.Object.HasStateAuthority)
+            if (!other.Object.HasStateAuthority) other.Object.RequestStateAuthority();
+            if (this.LastHitter != PlayerRef.None && other.Object.HasStateAuthority)
             {
-                other.Object.RequestStateAuthority();
+                other.LastHitter = this.LastHitter;
             }
 
-            if (this.LastHitter != PlayerRef.None)
-            {
-                if (other.Object.HasStateAuthority)
-                {
-                    other.LastHitter = this.LastHitter;
-                }
-            }
-
+            // 位置補正
             Vector3 normal = delta.normalized;
             if (distance == 0) normal = Vector3.forward;
-
             float overlap = minDistance - distance;
-            transform.position += normal * overlap;
+
+            transform.position -= normal * (overlap * 0.5f);
+            other.transform.position += normal * (overlap * 0.5f);
 
             if (Object.HasStateAuthority) NetworkPosition = transform.position;
 
-            Vector3 relativeVelocity = this.Velocity - other.Velocity;
-            float velocityAlongNormal = Vector3.Dot(relativeVelocity, normal);
+            // 速度転送ロジック（プレイヤー衝突側と統一）
+            BilliardBall hitter = (this.Velocity.magnitude >= other.Velocity.magnitude) ? this : other;
+            BilliardBall target = (hitter == this) ? other : this;
 
-            if (velocityAlongNormal < 0)
-            {
-                float ballRestitution = 0.98f;
+            Vector3 hitDir = (target.transform.position - hitter.transform.position).normalized;
+            hitDir.y = 0;
 
-                float v1DotNormal = Vector3.Dot(this.Velocity, normal);
-                Vector3 v1NormalVec = normal * v1DotNormal;
-                Vector3 v1TangentVec = this.Velocity - v1NormalVec;
+            float power = Mathf.Max(hitter.Velocity.magnitude, 1.0f);
+            Vector3 transferredVelocity = hitDir * power * PowerMultiplier;
 
-                float v2DotNormal = Vector3.Dot(other.Velocity, normal);
-                Vector3 v2NormalVec = normal * v2DotNormal;
-                Vector3 v2TangentVec = other.Velocity - v2NormalVec;
+            target.Velocity = transferredVelocity;
+            hitter.Velocity *= CollisionSpeedRetention;
 
-                float v1NormalNew = (v1DotNormal * (1 - ballRestitution) + v2DotNormal * (1 + ballRestitution)) / 2f;
-                float v2NormalNew = (v2DotNormal * (1 - ballRestitution) + v1DotNormal * (1 + ballRestitution)) / 2f;
-
-                this.Velocity = v1TangentVec + (normal * v1NormalNew);
-
-                if (other.Object.HasStateAuthority)
-                {
-                    other.Velocity = v2TangentVec + (normal * v2NormalNew);
-                }
-            }
+            Debug.Log($"【球間衝突】{hitter.BallNumber}が{target.BallNumber}に衝突。パワー転送: {power}");
         }
     }
 }

@@ -19,8 +19,8 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
     private async void Start()
     {
-        Debug.Log("1•bŒã‚É©“®‚ÅStartGame‚ğŒÄ‚Ño‚µ‚Ü‚·...");
-        await Task.Delay(1000);
+        Debug.Log("3•bŒã‚É©“®‚ÅStartGame‚ğŒÄ‚Ño‚µ‚Ü‚·...");
+        await Task.Delay(2000);
         StartGame();
     }
 
