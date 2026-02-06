@@ -1,169 +1,286 @@
+using System;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Net.WebSockets;
 using UnityEngine;
-using Fusion;
 
-public class VRPlayerMovement : NetworkBehaviour
+public class VRPlayerMovement : MonoBehaviour
 {
-    [Header("¶è: ƒrƒŠƒ„[ƒhˆÚ“®İ’è")]
+    [Header("WebSocketè¨­å®š")]
+    [SerializeField] private string serverUrl = "wss://b400-202-13-170-200.ngrok-free.app";
+    [SerializeField] private string clientId = "sim-1";
+
+    private ClientWebSocket socket;
+    private CancellationTokenSource cts = new CancellationTokenSource();
+
+    // ==== æä¾›ã•ã‚ŒãŸã‚³ãƒ¼ãƒ‰ã«åŸºã¥ãç‰©ç†è¨­å®š ====
+    [Header("ãƒ“ãƒªãƒ¤ãƒ¼ãƒ‰: ã‚·ãƒ§ãƒƒãƒˆè¨­å®š")]
     [SerializeField] private float launchPower = 10.0f;
     [SerializeField] private float friction = 0.98f;
     [SerializeField] private float stopThreshold = 0.01f;
-    [SerializeField][Range(0f, 1f)] private float collisionSpeedRetention = 0.2f;
+    [SerializeField][Range(0f, 1f)] private float collisionSpeedRetention = 0.2f; // è¡çªå¾Œã«æ®‹ã‚‹é€Ÿåº¦å‰²åˆ
 
-    [Header("ƒKƒCƒhüİ’è")]
-    [SerializeField] private LineRenderer directionLine; // Inspector‚ÅLineRenderer‚ğƒAƒ^ƒbƒ`
-    [SerializeField] private float lineLength = 2.0f;    // ü‚Ì’·‚³
+    // ==== æä¾›ã•ã‚ŒãŸã‚³ãƒ¼ãƒ‰ã«åŸºã¥ãã‚¬ã‚¤ãƒ‰ãƒ©ã‚¤ãƒ³è¨­å®š ====
+    [Header("ã‚¬ã‚¤ãƒ‰ç·šè¨­å®š")]
+    [SerializeField] private LineRenderer directionLine; // Inspectorã§LineRendererã‚’ã‚¢ã‚¿ãƒƒãƒ
+    [SerializeField] private float lineLength = 2.0f;    // ç·šã®é•·ã•
 
-    [Header("‰Eè: ’ÊíˆÚ“®İ’è")]
+    [Header("é€šå¸¸: ã‚¹ãƒ†ã‚£ãƒƒã‚¯ç§»å‹•è¨­å®š")]
     [SerializeField] private float normalMoveSpeed = 2.0f;
 
-    private Transform cameraRigRoot;
-    private Transform centerEyeAnchor;
+    [Header("ç§»å‹•å¯¾è±¡")]
+    [SerializeField] private Transform cameraRigRoot;
+    [SerializeField] private Transform centerEyeAnchor;
+
+    // å†…éƒ¨å¤‰æ•°
     private Vector3 currentVelocity;
+    private Rigidbody myRigidbody;
 
-    private bool isLaunchRequested = false;
-
-    public override void Spawned()
+    // ==== WebSocket ãƒ‡ãƒ¼ã‚¿æ§‹é€  ====
+    [Serializable]
+    private class InputPayloadData
     {
-        if (HasStateAuthority)
+        public float stickLeftX, stickLeftY;
+        public float stickRightX, stickRightY;
+        public bool  pressA;
+        public float forwardX, forwardZ;
+        public float rightX, rightZ;
+        public float launchDirX, launchDirZ;
+        public long  timestamp;
+    }
+
+    [Serializable]
+    private class InputMessage
+    {
+        public string type;
+        public string clientId;
+        public string role;
+        public InputPayloadData data;
+    }
+
+    // å—ä¿¡ãƒ‡ãƒ¼ã‚¿ä¿æŒç”¨
+    private Vector2 latestLeftInput  = Vector2.zero;
+    private Vector2 latestRightInput = Vector2.zero;
+    private bool    latestPressA     = false;
+    private Vector3 latestForward    = Vector3.forward;
+    private Vector3 latestRight      = Vector3.right;
+    private Vector3 latestLaunchDir  = Vector3.zero;
+
+    private void Awake()
+    {
+        if (cameraRigRoot == null) cameraRigRoot = this.transform;
+        if (centerEyeAnchor == null) centerEyeAnchor = cameraRigRoot;
+
+        // ç‰©ç†æŒ™å‹•ç”¨ Rigidbody è¨­å®š
+        myRigidbody = cameraRigRoot.GetComponent<Rigidbody>();
+        // if (myRigidbody == null)
+        // {
+        //     myRigidbody = cameraRigRoot.gameObject.AddComponent<Rigidbody>();
+        //     myRigidbody.useGravity = false;
+        //     myRigidbody.isKinematic = true; // ãƒ—ãƒ­ã‚°ãƒ©ãƒ åˆ¶å¾¡ã®ãŸã‚Kinematic
+        // }
+
+        // ã‚¬ã‚¤ãƒ‰ç·šã®åˆæœŸåŒ–
+        if (directionLine != null) directionLine.enabled = false;
+
+        socket = new ClientWebSocket();
+        ConnectAndStartReceiveLoop();
+    }
+
+    private async void ConnectAndStartReceiveLoop()
+    {
+        try
         {
-            var rig = FindObjectOfType<OVRCameraRig>();
-            if (rig != null)
+            var uri = new Uri(serverUrl);
+            Debug.Log("[WS-PC] Connecting to " + uri);
+            await socket.ConnectAsync(uri, cts.Token);
+            Debug.Log("[WS-PC] Connected: " + socket.State);
+            _ = ReceiveLoop();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("[WS-PC] Connect Exception: " + e);
+        }
+    }
+
+    private async Task ReceiveLoop()
+    {
+        var buffer = new byte[4096];
+        while (socket != null && socket.State == WebSocketState.Open)
+        {
+            try
             {
-                cameraRigRoot = rig.transform;
-                centerEyeAnchor = rig.centerEyeAnchor;
-                Debug.Log("y¬Œ÷zOVRCameraRig ‚ğ”­Œ©‚µ‚Ü‚µ‚½B");
+                var segment = new ArraySegment<byte>(buffer);
+                var result = await socket.ReceiveAsync(segment, cts.Token);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    Debug.Log("[WS-PC] Server closed connection");
+                    break;
+                }
+
+                int count = result.Count;
+                while (!result.EndOfMessage)
+                {
+                    if (count >= buffer.Length) break;
+                    segment = new ArraySegment<byte>(buffer, count, buffer.Length - count);
+                    result = await socket.ReceiveAsync(segment, cts.Token);
+                    count += result.Count;
+                }
+
+                string json = Encoding.UTF8.GetString(buffer, 0, count);
+                HandleInputJson(json);
             }
-            else
-            {
-                Debug.LogError("yƒGƒ‰[zƒV[ƒ““à‚É OVRCameraRig ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ");
-            }
+            catch (Exception) { break; }
         }
 
         if (directionLine != null) directionLine.enabled = false;
     }
 
+    private void HandleInputJson(string json)
+    {
+        try
+        {
+            var msg = JsonUtility.FromJson<InputMessage>(json);
+            if (msg == null || msg.type != "input" || msg.data == null) return;
+
+            latestLeftInput  = new Vector2(msg.data.stickLeftX, msg.data.stickLeftY);
+            latestRightInput = new Vector2(msg.data.stickRightX, msg.data.stickRightY);
+            latestPressA     = msg.data.pressA;
+
+            latestForward = new Vector3(msg.data.forwardX, 0f, msg.data.forwardZ);
+            latestRight   = new Vector3(msg.data.rightX,   0f, msg.data.rightZ);
+            latestLaunchDir = new Vector3(msg.data.launchDirX, 0f, msg.data.launchDirZ);
+
+            if (latestForward.sqrMagnitude > 0.0001f) latestForward.Normalize();
+            if (latestRight.sqrMagnitude   > 0.0001f) latestRight.Normalize();
+        }
+        catch (Exception e) { Debug.LogError("[WS-PC] Parse Error: " + e); }
+    }
+
     private void Update()
     {
-        if (!HasStateAuthority || cameraRigRoot == null) return;
-
-        // ¶ƒXƒeƒBƒbƒN“ü—Íƒ`ƒFƒbƒN
-        Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
-
-        // --- ’Ç‰Á: ƒKƒCƒhü‚Ì•\¦ˆ— ---
-        if (directionLine != null && centerEyeAnchor != null)
+        // ==== ã‚¬ã‚¤ãƒ‰ç·šã®æç”» (PCç”»é¢ä¸Šã®ãƒ‡ãƒãƒƒã‚°ç”¨ã¨ã—ã¦æ©Ÿèƒ½ã—ã¾ã™) ====
+        if (directionLine != null)
         {
-            // ƒXƒeƒBƒbƒN‚ª‚ ‚é’ö“x“|‚³‚ê‚Ä‚¢‚éê‡‚Ì‚İü‚ğ•\¦
-            if (leftInput.magnitude > 0.1f)
+            // å—ä¿¡ã—ãŸã‚¹ãƒ†ã‚£ãƒƒã‚¯å…¥åŠ›ã‚’ä½¿ç”¨
+            if (latestLeftInput.magnitude > 0.1f)
             {
                 directionLine.enabled = true;
 
-                // ˆÚ“®•ûŒü‚ÌŒvZiFixedUpdateNetwork‚Æ“¯‚¶ƒƒWƒbƒNj
-                Vector3 forward = centerEyeAnchor.forward;
-                Vector3 right = centerEyeAnchor.right;
-                forward.y = 0f;
-                right.y = 0f;
-                forward.Normalize();
-                right.Normalize();
+                // å‘ãè¨ˆç®—
+                Vector3 forward = latestForward;
+                Vector3 right   = latestRight;
 
-                Vector3 aimDir = (forward * leftInput.y + right * leftInput.x).normalized;
-
-                // ü‚Ìn“_‚ÆI“_‚ğİ’è
-                // n“_: Œ»İ‚Ì‘«Œ³iCameraRig‚ÌˆÊ’uj
-                // I“_: Œü‚¢‚Ä‚¢‚é•ûŒü * ’·‚³
+                Vector3 aimDir = (forward * latestLeftInput.y + right * latestLeftInput.x).normalized;
                 Vector3 startPos = cameraRigRoot.position;
-
-                // ­‚µã‚É‚¿ã‚°‚½‚¢ê‡‚Í startPos.y += 0.1f; ‚È‚Ç’²®‰Â”\
 
                 directionLine.SetPosition(0, startPos);
                 directionLine.SetPosition(1, startPos + aimDir * lineLength);
             }
             else
             {
-                // “ü—Í‚ª‚È‚¢‚Æ‚«‚Íü‚ğÁ‚·
                 directionLine.enabled = false;
             }
         }
-        // -----------------------------
-
-        // uƒXƒeƒBƒbƒN‚ª“|‚³‚ê‚Ä‚¢‚év‚©‚ÂuAƒ{ƒ^ƒ“‚ª‰Ÿ‚³‚ê‚½vuŠÔ‚ğŒŸ’m
-        if (leftInput.magnitude > 0.1f && OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
-        {
-            isLaunchRequested = true;
-        }
     }
 
-    public override void FixedUpdateNetwork()
+    private void FixedUpdate()
     {
-        if (!HasStateAuthority || cameraRigRoot == null || centerEyeAnchor == null)
-        {
-            return;
-        }
+        if (cameraRigRoot == null) return;
 
-        // --- Šµ«ˆÚ“®‚Ìˆ— ---
+        // ===== 1. æ…£æ€§ç§»å‹• =====
         if (currentVelocity.magnitude > stopThreshold)
         {
-            cameraRigRoot.position += currentVelocity * Runner.DeltaTime;
-            currentVelocity *= friction;
+            if (myRigidbody != null)
+                myRigidbody.MovePosition(myRigidbody.position + currentVelocity * Time.fixedDeltaTime);
+            else
+                cameraRigRoot.position += currentVelocity * Time.fixedDeltaTime;
+            
+            currentVelocity *= friction; // æ‘©æ“¦ã«ã‚ˆã‚‹æ¸›é€Ÿ
         }
         else
         {
             currentVelocity = Vector3.zero;
         }
 
-        // --- ˆÚ“®•ûŒü‚ÌŒvZ ---
-        Vector3 forward = centerEyeAnchor.forward;
-        Vector3 right = centerEyeAnchor.right;
-        forward.y = 0f;
-        right.y = 0f;
-        forward.Normalize();
-        right.Normalize();
+        // ===== 2. å…¥åŠ›ãƒ‡ãƒ¼ã‚¿ã®å–å¾— =====
+        Vector3 forward = latestForward;
+        Vector3 right   = latestRight;
+        Vector2 leftInput  = latestLeftInput;
+        Vector2 rightInput = latestRightInput;
+        bool    pressA     = latestPressA;
+        latestPressA = false; // ãƒ•ãƒ¬ãƒ¼ãƒ æ¶ˆè²»
 
-        // --- ƒrƒŠƒ„[ƒhˆÚ“®i”­Ëjˆ— ---
-        if (isLaunchRequested)
+        // ===== 3. ã‚·ãƒ§ãƒƒãƒˆå‡¦ç† =====
+        if (pressA)
         {
-            Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
-
-            if (leftInput.magnitude > 0.1f)
+            Vector3 launchDir = latestLaunchDir;
+            
+            // ã‚‚ã—LaunchDirãŒæ¥ã¦ãªã‘ã‚Œã°è¨ˆç®—
+            if (launchDir.sqrMagnitude < 0.001f && leftInput.magnitude > 0.1f)
             {
-                Vector3 launchDir = (forward * leftInput.y + right * leftInput.x).normalized;
-                currentVelocity = launchDir * launchPower;
-                Debug.Log($"yˆÚ“®zAƒ{ƒ^ƒ“ƒVƒ‡ƒbƒgÀsI •ûŒü:{launchDir} ‘¬“x:{launchPower}");
+                launchDir = (forward * leftInput.y + right * leftInput.x).normalized;
             }
 
-            isLaunchRequested = false;
+            if (launchDir.sqrMagnitude > 0.001f)
+            {
+                currentVelocity = launchDir * launchPower;
+                Debug.Log($"[WS-PC] Shot! Dir:{launchDir} Power:{launchPower}");
+            }
         }
 
-        // --- ’ÊíˆÚ“®ˆ— ---
-        Vector2 rightInput = OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick);
+        // ===== 4. é€šå¸¸ç§»å‹• =====
         if (rightInput.magnitude > 0.1f)
         {
             Vector3 moveDirection = (forward * rightInput.y + right * rightInput.x);
-            cameraRigRoot.position += moveDirection * normalMoveSpeed * Runner.DeltaTime;
+            if (myRigidbody != null)
+                myRigidbody.MovePosition(myRigidbody.position + moveDirection * normalMoveSpeed * Time.fixedDeltaTime);
+            else
+                cameraRigRoot.position += moveDirection * normalMoveSpeed * Time.fixedDeltaTime;
         }
     }
 
-    // OnCollisionEnter ‚ÍÈ—ªi•ÏX‚È‚µj
+    // ===== 5. è¡çªåˆ¤å®š (æŒ‡å®šã•ã‚ŒãŸãƒ­ã‚¸ãƒƒã‚¯ã‚’å®Ÿè£…) =====
     private void OnCollisionEnter(Collision collision)
     {
-        if (!HasStateAuthority) return;
-
-        var ball = collision.gameObject.GetComponent<BilliardBall>();
-        if (ball != null)
-        {
-            Vector3 dir = (ball.transform.position - transform.position).normalized;
-            dir.y = 0;
-            float power = Mathf.Max(currentVelocity.magnitude, 1.0f);
-            Vector3 newVelocity = dir * power * 1.2f;
-            ball.OnHit(newVelocity, Runner.LocalPlayer);
-            currentVelocity *= collisionSpeedRetention;
-            Debug.Log($"yÕ“Ëzƒ{[ƒ‹‚ÉÕ“ËB‘¬“xˆÛ—¦: {collisionSpeedRetention}, c‚è‘¬“x: {currentVelocity.magnitude}");
-        }
-        else if (collision.gameObject.CompareTag("Wall"))
+        // å£ã¨ã®è¡çª (Wallã‚¿ã‚°åˆ¤å®š)
+        if (collision.gameObject.CompareTag("Wall"))
         {
             Vector3 normal = collision.contacts[0].normal;
             currentVelocity = Vector3.Reflect(currentVelocity, normal);
-            currentVelocity *= 0.8f;
-            Debug.Log("y”½Ëz•Ç‚É“–‚½‚Á‚Ä’µ‚Ë•Ô‚è‚Ü‚µ‚½B");
+            currentVelocity *= 0.8f; // å£ã«å½“ãŸã‚‹ã¨é€Ÿåº¦ãŒ0.8å€ã«ãªã‚‹
+            
+            Debug.Log("[Physics] Hit Wall (Reflect)");
         }
+        else
+        {
+            // ãƒœãƒ¼ãƒ«ã¨ã®è¡çª (ç›¸æ‰‹ãŒRigidbodyã‚’æŒã£ã¦ã„ã‚‹ã‹ã§åˆ¤å®š)
+            Rigidbody targetRb = collision.gameObject.GetComponent<Rigidbody>();
+            if (targetRb != null)
+            {
+                // è‡ªåˆ† -> ç›¸æ‰‹ ã¸ã®ãƒ™ã‚¯ãƒˆãƒ«
+                Vector3 dir = (targetRb.position - transform.position).normalized;
+                dir.y = 0; // é«˜ã•ã¯ç„¡è¦–
+
+                float power = Mathf.Max(currentVelocity.magnitude, 1.0f);
+                
+                // ç›¸æ‰‹ã‚’å¼¾ãé£›ã°ã™ (1.2å€ã®ãƒ‘ãƒ¯ãƒ¼)
+                Vector3 newVelocity = dir * power * 1.2f;
+                targetRb.linearVelocity = newVelocity;
+
+                // è‡ªåˆ†ã¯é€Ÿåº¦ã‚’è½ã¨ã—ã¦å°‘ã—æ®‹ã‚‹ (collisionSpeedRetention)
+                currentVelocity *= collisionSpeedRetention;
+
+                Debug.Log($"[Physics] Hit Ball. Retention:{collisionSpeedRetention}, TargetVel:{newVelocity.magnitude}");
+            }
+        }
+    }
+
+    private async void OnApplicationQuit()
+    {
+        cts.Cancel();
+        if (socket != null) { socket.Dispose(); }
     }
 }
