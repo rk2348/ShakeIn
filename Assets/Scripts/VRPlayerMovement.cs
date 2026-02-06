@@ -134,6 +134,8 @@ public class VRPlayerMovement : MonoBehaviour
             }
             catch (Exception) { break; }
         }
+
+        if (directionLine != null) directionLine.enabled = false;
     }
 
     private void HandleInputJson(string json)

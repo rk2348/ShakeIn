@@ -9,13 +9,6 @@ public class RespawnPoint : MonoBehaviour
 
     int respawnCount = 0;
 
-    void Update()
-    {
-        void OnCollisionEnter(Collision collision)
-        {
-            HandlRespawn();
-        }
-
         // 【追加】Holeタグがついたオブジェクト（穴）に触れたらリスポーン
         void OnTriggerEnter(Collider other)
         {
@@ -49,5 +42,4 @@ public class RespawnPoint : MonoBehaviour
                 transform.position = respawnPosition.position;
             }
         }
-    }
 }

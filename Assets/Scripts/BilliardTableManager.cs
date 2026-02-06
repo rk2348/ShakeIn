@@ -24,6 +24,26 @@ public class BilliardTableManager : NetworkBehaviour
         if (allBalls.Contains(ball)) allBalls.Remove(ball);
     }
 
+    public int GetNextTargetBallNumber()
+    {
+        int minNumber = int.MaxValue;
+        bool found = false;
+
+        foreach (var ball in allBalls)
+        {
+            if (ball != null && ball.Object != null && ball.Object.IsValid && ball.BallNumber > 0)
+            {
+                if (ball.BallNumber < minNumber)
+                {
+                    minNumber = ball.BallNumber;
+                    found = true;
+                }
+            }
+        }
+
+        return found ? minNumber : 0;
+    }
+
     public override void FixedUpdateNetwork()
     {
         // リスト内のボール同士の衝突判定を回す
@@ -32,9 +52,7 @@ public class BilliardTableManager : NetworkBehaviour
             // ボールが無効ならスキップ
             if (allBalls[i] == null || !allBalls[i].Object.IsValid) continue;
 
-            // 【重要】
-            // 自分が権限を持っているボールについてのみ、衝突判定を行う。
-            // これにより、全プレイヤーが同じ計算を重複して行い、挙動がおかしくなるのを防ぐ。
+            // 自分が権限を持っているボールについてのみ、衝突判定を行う
             if (!allBalls[i].Object.HasStateAuthority) continue;
 
             for (int j = i + 1; j < allBalls.Count; j++)
