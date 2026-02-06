@@ -14,7 +14,7 @@ public class BilliardPocket : NetworkBehaviour
         {
             // スコア加算処理を削除し、ボールの消去のみを行う
             Debug.Log("Ball potted.");
-            Runner.Despawn(ball.Object);
+            Runner.Despawn(Object);
         }
     }
 }

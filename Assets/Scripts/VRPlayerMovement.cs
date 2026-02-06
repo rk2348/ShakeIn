@@ -7,10 +7,13 @@ public class VRPlayerMovement : NetworkBehaviour
     [SerializeField] private float launchPower = 10.0f;
     [SerializeField] private float friction = 0.98f;
     [SerializeField] private float stopThreshold = 0.01f;
-
-    // 【追加】衝突時の速度維持率（0.0 = 完全停止, 1.0 = 減速なし）
-    // 「少しだけ動きを停止（減速）」させたい場合は 0.2 ～ 0.5 程度に設定してみてください。
     [SerializeField][Range(0f, 1f)] private float collisionSpeedRetention = 0.2f;
+
+    // --- 追加: ガイド線用の設定 ---
+    [Header("ガイド線設定")]
+    [SerializeField] private LineRenderer directionLine; // InspectorでLineRendererをアタッチ
+    [SerializeField] private float lineLength = 2.0f;    // 線の長さ
+    // ---------------------------
 
     [Header("右手: 通常移動設定")]
     [SerializeField] private float normalMoveSpeed = 2.0f;
@@ -19,7 +22,6 @@ public class VRPlayerMovement : NetworkBehaviour
     private Transform centerEyeAnchor;
     private Vector3 currentVelocity;
 
-    // 【修正】入力の取りこぼしを防ぐためのフラグ
     private bool isLaunchRequested = false;
 
     public override void Spawned()
@@ -38,21 +40,58 @@ public class VRPlayerMovement : NetworkBehaviour
                 Debug.LogError("【エラー】シーン内に OVRCameraRig が見つかりません");
             }
         }
+
+        // --- 追加: 初期状態では線を消しておく ---
+        if (directionLine != null) directionLine.enabled = false;
     }
 
-    // 【修正】入力判定は毎フレーム行われる Update で確実に拾う
     private void Update()
     {
-        // 権限がない、または初期化前なら何もしない
         if (!HasStateAuthority || cameraRigRoot == null) return;
 
         // 左スティック入力チェック
         Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
 
+        // --- 追加: ガイド線の表示処理 ---
+        if (directionLine != null && centerEyeAnchor != null)
+        {
+            // スティックがある程度倒されている場合のみ線を表示
+            if (leftInput.magnitude > 0.1f)
+            {
+                directionLine.enabled = true;
+
+                // 移動方向の計算（FixedUpdateNetworkと同じロジック）
+                Vector3 forward = centerEyeAnchor.forward;
+                Vector3 right = centerEyeAnchor.right;
+                forward.y = 0f;
+                right.y = 0f;
+                forward.Normalize();
+                right.Normalize();
+
+                Vector3 aimDir = (forward * leftInput.y + right * leftInput.x).normalized;
+
+                // 線の始点と終点を設定
+                // 始点: 現在の足元（CameraRigの位置）
+                // 終点: 向いている方向 * 長さ
+                Vector3 startPos = cameraRigRoot.position;
+
+                // 少し上に持ち上げたい場合は startPos.y += 0.1f; など調整可能
+
+                directionLine.SetPosition(0, startPos);
+                directionLine.SetPosition(1, startPos + aimDir * lineLength);
+            }
+            else
+            {
+                // 入力がないときは線を消す
+                directionLine.enabled = false;
+            }
+        }
+        // -----------------------------
+
         // 「スティックが倒されている」かつ「Aボタンが押された」瞬間を検知
         if (leftInput.magnitude > 0.1f && OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
         {
-            isLaunchRequested = true; // フラグを立てる（処理は FixedUpdateNetwork に任せる）
+            isLaunchRequested = true;
         }
     }
 
@@ -87,7 +126,6 @@ public class VRPlayerMovement : NetworkBehaviour
         {
             Vector2 leftInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
 
-            // フラグが立っていても、処理の瞬間にスティックが戻っている可能性を考慮
             if (leftInput.magnitude > 0.1f)
             {
                 Vector3 launchDir = (forward * leftInput.y + right * leftInput.x).normalized;
@@ -95,7 +133,6 @@ public class VRPlayerMovement : NetworkBehaviour
                 Debug.Log($"【移動】Aボタンショット実行！ 方向:{launchDir} 速度:{launchPower}");
             }
 
-            // 処理が終わったらフラグを下ろす
             isLaunchRequested = false;
         }
 
@@ -108,6 +145,7 @@ public class VRPlayerMovement : NetworkBehaviour
         }
     }
 
+    // OnCollisionEnter は省略（変更なし）
     private void OnCollisionEnter(Collision collision)
     {
         if (!HasStateAuthority) return;
@@ -115,22 +153,12 @@ public class VRPlayerMovement : NetworkBehaviour
         var ball = collision.gameObject.GetComponent<BilliardBall>();
         if (ball != null)
         {
-            // 衝突方向とパワーを計算
             Vector3 dir = (ball.transform.position - transform.position).normalized;
             dir.y = 0;
             float power = Mathf.Max(currentVelocity.magnitude, 1.0f);
-
-            // 新しい速度ベクトルを作成
             Vector3 newVelocity = dir * power * 1.2f;
-
-            // ボール側の OnHit を呼んで処理を委譲
             ball.OnHit(newVelocity, Runner.LocalPlayer);
-
-            // 【修正】自分の反動処理
-            // 以前: currentVelocity = Vector3.zero; (完全停止)
-            // 修正: 設定された割合だけ速度を残す（減速して少し動く）
             currentVelocity *= collisionSpeedRetention;
-
             Debug.Log($"【衝突】ボールに衝突。速度維持率: {collisionSpeedRetention}, 残り速度: {currentVelocity.magnitude}");
         }
         else if (collision.gameObject.CompareTag("Wall"))
