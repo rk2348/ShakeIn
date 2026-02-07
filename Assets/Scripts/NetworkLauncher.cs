@@ -8,45 +8,40 @@ using TMPro;
 
 public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
 {
-    [Header("Network Settings")]
-    [SerializeField] private List<NetworkPrefabRef> playerPrefabs;
-    [SerializeField] private int targetSceneIndex = 1;
-
     [Header("UI References")]
-    [SerializeField] private TMP_InputField roomNameInputField;
+    [SerializeField] private GameObject matchingStatusUI;
+    [SerializeField] private TextMeshProUGUI statusText;
+
+    [Header("Game Settings")]
+    [SerializeField] private NetworkPrefabRef playerPrefab;
+    [SerializeField] private int gameSceneIndex = 1;
+
+    // 横並びの間隔（メートル）
+    [SerializeField] private float spawnSpacing = 1.5f;
 
     private NetworkRunner _runner;
 
-    private async void Start()
+    public void OnFindMatchButtonClicked()
     {
-        Debug.Log("1秒後に自動でStartGameを呼び出します...");
-        await Task.Delay(1000);
-        StartGame();
+        StartGame(GameMode.Shared);
     }
 
-    public async void StartGame()
+    async void StartGame(GameMode mode)
     {
-        if (roomNameInputField == null)
-        {
-            Debug.LogError("Room Name Input Field がインスペクターで設定されていません！");
-            return;
-        }
-
-        if (_runner != null) Destroy(_runner.gameObject);
+        if (matchingStatusUI != null) matchingStatusUI.SetActive(true);
+        if (statusText != null) statusText.text = "Connecting...";
 
         _runner = gameObject.AddComponent<NetworkRunner>();
         _runner.ProvideInput = true;
-
-        string sessionName = string.IsNullOrEmpty(roomNameInputField.text) ? "TestRoom" : roomNameInputField.text;
-        SceneRef sceneRef = SceneRef.FromIndex(targetSceneIndex);
+        var sceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>();
 
         await _runner.StartGame(new StartGameArgs()
         {
-            GameMode = GameMode.Shared,
-            SessionName = sessionName,
-            Scene = sceneRef,
-            PlayerCount = 2, // 最大人数制限
-            SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
+            GameMode = mode,
+            SessionName = "",
+            Scene = SceneRef.FromIndex(gameSceneIndex),
+            PlayerCount = 4,
+            SceneManager = sceneManager
         });
     }
 
@@ -54,33 +49,49 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (player == runner.LocalPlayer)
         {
-            if (playerPrefabs != null && playerPrefabs.Count > 0)
-            {
-                int playerCount = runner.SessionInfo.PlayerCount;
-                int index = (playerCount - 1) % playerPrefabs.Count;
-                Debug.Log($"【Spawn】プレイヤー人数: {playerCount}人目 -> Prefab Index: {index} を生成します。");
-                runner.Spawn(playerPrefabs[index], Vector3.zero, Quaternion.identity, player);
-            }
-            else
-            {
-                Debug.LogError("【Error】NetworkLauncherの 'Player Prefabs' リストが空です！");
-            }
+            Debug.Log("【NetworkLauncher】プレイヤーを生成します。");
+
+            // --- 修正箇所: 横並び配置の計算 ---
+
+            // 何人目のプレイヤーか (0, 1, 2...)
+            int index = runner.SessionInfo.PlayerCount - 1;
+
+            // 基本の位置（台の手前）
+            // X軸を index * spawnSpacing 分だけずらす
+            // 例: 1人目(0) -> X=0, 2人目(1) -> X=1.5, 3人目(2) -> X=3.0
+            // ※「1人目の横」にしたいので、少し右（または左）に配置します
+            float xOffset = index * spawnSpacing;
+
+            // 2人目以降が極端に遠くならないよう、左右に振り分ける場合（オプション）
+            // float xOffset = (index % 2 == 0) ? index * spacing / 2 : -((index + 1) * spacing / 2);
+
+            Vector3 spawnPos = new Vector3(xOffset, 1, -2);
+
+            // プレイヤー生成
+            // 向きは全員同じ方向（台の方）を向くように設定
+            runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
+            // ------------------------------------
+
+            if (matchingStatusUI != null) matchingStatusUI.SetActive(false);
         }
     }
 
-    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+    // --- その他のコールバック（変更なし） ---
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
     {
-        // プレイヤーが退出したときの処理
+        if (statusText != null) statusText.text = $"Connect Failed: {reason}";
+    }
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        if (statusText != null) statusText.text = "Disconnected";
     }
 
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
@@ -90,4 +101,5 @@ public class NetworkLauncher : MonoBehaviour, INetworkRunnerCallbacks
     public void OnSceneLoadStart(NetworkRunner runner) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
 }

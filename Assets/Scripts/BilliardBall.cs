@@ -3,15 +3,12 @@ using Fusion;
 
 public class BilliardBall : NetworkBehaviour
 {
-    // --- 追加部分: ボール番号の設定 ---
     [Header("ボール設定")]
-    [Tooltip("手球は0、的球は1?9等の番号を設定してください")]
+    [Tooltip("手球は0、的球は1?9等の番号")]
     public int BallNumber = 0;
-    // -------------------------------
 
     [Networked] public Vector3 Velocity { get; set; }
     [Networked] public PlayerRef LastHitter { get; set; }
-
     [Networked] private Vector3 NetworkPosition { get; set; }
 
     [Header("物理設定")]
@@ -25,9 +22,8 @@ public class BilliardBall : NetworkBehaviour
 
     public override void Spawned()
     {
-        var manager = BilliardTableManager.Instance;
-        if (manager == null) manager = FindObjectOfType<BilliardTableManager>();
-        if (manager != null) manager.RegisterBall(this);
+        // シーンロード直後はManagerが見つからない場合があるため、遅延対応できるようにする
+        RegisterToManager();
 
         if (Object.HasStateAuthority)
         {
@@ -35,10 +31,21 @@ public class BilliardBall : NetworkBehaviour
         }
     }
 
+    private void RegisterToManager()
+    {
+        var manager = BilliardTableManager.Instance;
+        // シーン内にManagerがあるか検索
+        if (manager == null) manager = FindObjectOfType<BilliardTableManager>();
+
+        if (manager != null)
+        {
+            manager.RegisterBall(this);
+        }
+    }
+
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         var manager = BilliardTableManager.Instance;
-        if (manager == null) manager = FindObjectOfType<BilliardTableManager>();
         if (manager != null) manager.UnregisterBall(this);
     }
 
@@ -48,7 +55,6 @@ public class BilliardBall : NetworkBehaviour
         {
             Object.RequestStateAuthority();
         }
-
         _pendingLastHitter = hitter;
         this.Velocity = velocity;
     }
@@ -78,29 +84,13 @@ public class BilliardBall : NetworkBehaviour
         }
         else
         {
+            // 位置同期の補間
             if (Vector3.Distance(transform.position, NetworkPosition) > 0.001f)
             {
-                transform.position = NetworkPosition;
+                transform.position = Vector3.Lerp(transform.position, NetworkPosition, Runner.DeltaTime * 10f);
             }
         }
     }
-
-    // --- 【追加・修正】ポケット判定をボール側で行う ---
-    private void OnTriggerEnter(Collider other)
-    {
-        // 自分が権限を持っている場合のみ実行
-        if (Object != null && Object.HasStateAuthority)
-        {
-            // 触れた相手が「ポケット」コンポーネントを持っているか確認
-            // （またはタグで判定してもOKですが、確実なComponent判定を推奨）
-            if (other.GetComponent<BilliardPocket>() != null)
-            {
-                Debug.Log($"【BilliardBall】ボール{BallNumber}がポケットに入りました。Despawnします。");
-                Runner.Despawn(Object);
-            }
-        }
-    }
-    // ------------------------------------------------
 
     private void HandleWallCollision()
     {
@@ -109,10 +99,10 @@ public class BilliardBall : NetworkBehaviour
 
         float margin = radius + 0.05f;
         Vector3 direction = Velocity.normalized;
-        Vector3 origin = transform.position - (direction * margin);
-        float checkDistance = moveDistance + margin;
+        Vector3 origin = transform.position;
 
-        if (Physics.SphereCast(origin, radius, direction, out RaycastHit hit, checkDistance))
+        // Raycastの開始位置を少し後ろにずらす（めり込み対策）
+        if (Physics.SphereCast(origin - (direction * 0.01f), radius, direction, out RaycastHit hit, moveDistance + margin))
         {
             if (hit.collider.CompareTag(wallTag))
             {
@@ -132,51 +122,37 @@ public class BilliardBall : NetworkBehaviour
 
         if (distance < minDistance)
         {
-            if (!other.Object.HasStateAuthority)
-            {
-                other.Object.RequestStateAuthority();
-            }
+            if (!other.Object.HasStateAuthority) other.Object.RequestStateAuthority();
 
-            if (this.LastHitter != PlayerRef.None)
+            if (this.LastHitter != PlayerRef.None && other.Object.HasStateAuthority)
             {
-                if (other.Object.HasStateAuthority)
-                {
-                    other.LastHitter = this.LastHitter;
-                }
+                other.LastHitter = this.LastHitter;
             }
 
             Vector3 normal = delta.normalized;
             if (distance == 0) normal = Vector3.forward;
 
+            // めり込み解消
             float overlap = minDistance - distance;
-            transform.position += normal * overlap;
+            transform.position += normal * (overlap * 0.5f);
+            other.transform.position -= normal * (overlap * 0.5f);
 
             if (Object.HasStateAuthority) NetworkPosition = transform.position;
+            // other側のNetworkPosition更新は相手のFixedUpdateNetworkで行われるか、ここで行うなら権限チェックが必要
 
+            // 速度計算（簡易版）
             Vector3 relativeVelocity = this.Velocity - other.Velocity;
             float velocityAlongNormal = Vector3.Dot(relativeVelocity, normal);
 
             if (velocityAlongNormal < 0)
             {
-                float ballRestitution = 0.98f;
+                float restitution = 0.9f;
+                float j = -(1 + restitution) * velocityAlongNormal;
+                j /= 2; // 質量が同じと仮定
 
-                float v1DotNormal = Vector3.Dot(this.Velocity, normal);
-                Vector3 v1NormalVec = normal * v1DotNormal;
-                Vector3 v1TangentVec = this.Velocity - v1NormalVec;
-
-                float v2DotNormal = Vector3.Dot(other.Velocity, normal);
-                Vector3 v2NormalVec = normal * v2DotNormal;
-                Vector3 v2TangentVec = other.Velocity - v2NormalVec;
-
-                float v1NormalNew = (v1DotNormal * (1 - ballRestitution) + v2DotNormal * (1 + ballRestitution)) / 2f;
-                float v2NormalNew = (v2DotNormal * (1 - ballRestitution) + v1DotNormal * (1 + ballRestitution)) / 2f;
-
-                this.Velocity = v1TangentVec + (normal * v1NormalNew);
-
-                if (other.Object.HasStateAuthority)
-                {
-                    other.Velocity = v2TangentVec + (normal * v2NormalNew);
-                }
+                Vector3 impulse = j * normal;
+                this.Velocity += impulse;
+                if (other.Object.HasStateAuthority) other.Velocity -= impulse;
             }
         }
     }
